@@ -11,6 +11,7 @@
 #include <arpa/inet.h>			/* htons */
 #include <ifaddrs.h>			/* getifaddrs */
 
+#include "common.h"
 
 void usage(char *arg)
 {
@@ -29,6 +30,9 @@ int main(int argc, char *argv[])
 	int dflag = 0;
 	char *socket_upper = NULL;
 	char *MIP_address = NULL;
+	
+	struct ifs_data local_ifs;
+	int raw_sock, rc;
 
 	while((opt = getopt(argc, argv, "dh")) != -1)
 	{
@@ -68,19 +72,18 @@ int main(int argc, char *argv[])
 	
 	socket_upper = argv[dflag ? 2 : 1];
 	MIP_address = argv[dflag ? 3 : 2];
-/*
-	if(dflag)
-	{
-		socket_upper = argv[2];
-		MIP_address = argv[3];
-	}else
-	{
-		socket_upper = argv[1];
-		MIP_address = argv[2];
-	}
-*/
+
 	printf("Socket Upper: %s\n", socket_upper);
 	printf("MIP Address: %s\n", MIP_address);
+	
+	raw_sock = create_raw_socket();
+	init_ifs(&local_ifs, raw_sock);
+
+	for(int i = 0; i < local_ifs.ifn; i++) {
+		print_mac_addr(local_ifs.addr[i].sll_addr,6);
+	}
+	
+
 
 	return 0;
 }

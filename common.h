@@ -1,7 +1,6 @@
 #ifndef _COMMON_H
 #define _COMMON_H
 
-#include <cstdint>
 #include <stdint.h>		/* uint8_t */
 #include <unistd.h>		/* size_t */
 #include <linux/if_packet.h>	/* struct sockaddr_ll */
@@ -22,5 +21,16 @@ struct ifs_data {
 	int rsock;
 	int ifn;
 };
+
+struct arp_entry {
+	char *MIP_address;
+	struct sockaddr_ll addr;
+};
+
+
+void get_mac_from_interfaces(struct ifs_data *);
+void print_mac_addr(uint8_t *, size_t);
+void init_ifs(struct ifs_data *, int);
+int create_raw_socket(void);
 
 #endif // !DEBUG
