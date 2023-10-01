@@ -14,7 +14,12 @@
 
 void usage(char *arg)
 {
-	printf("Usage: %s [-h] [-d] <socket_upper> <MIP_address>\nOptions:\n\t-h: prints help and exits program\n\t-d: enables debugging mode\nRequired Arguments:\n\tsocket_upper: pathname of the UNIX socket used to interface with upper layers\n\tMIP address: the MIP address to assign to this host\n", arg);
+	printf("Usage: %s [-h] [-d] <socket_upper> <MIP_address>\n"
+		"Options:\n"
+		"\t-h: prints help and exits program\n"
+		"\t-d: enables debugging mode\nRequired Arguments:\n"
+		"\tsocket_upper: pathname of the UNIX socket used to interface with upper layers\n"
+		"\tMIP address: the MIP address to assign to this host\n", arg);
 }
 
 int main(int argc, char *argv[])
