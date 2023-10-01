@@ -12,13 +12,21 @@
 #include <ifaddrs.h>			/* getifaddrs */
 
 
+void usage(char *arg)
+{
+	printf("Usage: %s [-h] [-d] <socket_upper> <MIP_address>\nOptions:\n\t-h prints help and exits program\n\t-d enables debugging mode\nRequired Arguments:\n\tsocket_upper: pathname of the UNIX socket used to interface with upper layers\n\tMIP address: the MIP address to assign to this host\n", arg);
+}
 
 int main(int argc, char *argv[])
 {
-	int opt, hflag = 0, dflag = 0, socket_upper = -1;
+	int opt;
+	int hflag = 0;
+	int dflag = 0;
+	int socket_upper = -1;
 	char *MIP_address = NULL;
 
-	while ((opt = getopt(argc, argv, "hds:m:")) != -1) {
+	while((opt = getopt(argc, argv, "dh")) != -1)
+	{
 		switch (opt) {
 			case 'h':
 				hflag = 1;
@@ -26,23 +34,18 @@ int main(int argc, char *argv[])
 			case 'd':
 				dflag = 1;
 				break;
-			case 's':
-				socket_upper = atoi(optarg);
-				break;
-			case 'm':
-				MIP_address = optarg;
-				break;
 			default:
-				printf("Usage: %s [-h] [-d] -s <socket_upper> -m <MIP_address>\n", argv[0]);
+				usage(argv[0]);
 				exit(EXIT_FAILURE);
 		}
 	}
 
-	if (socket_upper == -1 || MIP_address == NULL) {
-		printf("Both socket_upper and MIP_address are required.\n");
-		printf("Usage: %s [-h] [-d] -s <socket_upper> -m <MIP_address>\n", argv[0]);
-		exit(EXIT_FAILURE);
-	}	
+	if(hflag)
+	{
+		usage(argv[0]);
+		exit(EXIT_SUCCESS);
+	}
+
 
 	return 0;
 }
