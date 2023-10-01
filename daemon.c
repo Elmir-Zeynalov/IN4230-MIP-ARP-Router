@@ -15,26 +15,34 @@
 
 int main(int argc, char *argv[])
 {
-	int opt, hflag = 0, dflag = 0;
+	int opt, hflag = 0, dflag = 0, socket_upper = -1;
+	char *MIP_address = NULL;
 
-	while ((opt = getopt(argc, argv, "sc")) != -1) {
+	while ((opt = getopt(argc, argv, "hds:m:")) != -1) {
 		switch (opt) {
 			case 'h':
 				hflag = 1;
 				break;
 			case 'd':
-				/* Running in client mode */
 				dflag = 1;
 				break;
-			default: /* '?' */
-				printf("Usage: %s "
-						"[-h] prints help and exits the program "
-						"[-d] enable debugging mode\n", argv[0]);
+			case 's':
+				socket_upper = atoi(optarg);
+				break;
+			case 'm':
+				MIP_address = optarg;
+				break;
+			default:
+				printf("Usage: %s [-h] [-d] -s <socket_upper> -m <MIP_address>\n", argv[0]);
 				exit(EXIT_FAILURE);
 		}
 	}
 
-	printf("H: %d\n", hflag);
-	printf("D: %d\n", dflag);
+	if (socket_upper == -1 || MIP_address == NULL) {
+		printf("Both socket_upper and MIP_address are required.\n");
+		printf("Usage: %s [-h] [-d] -s <socket_upper> -m <MIP_address>\n", argv[0]);
+		exit(EXIT_FAILURE);
+	}	
+
 	return 0;
 }
