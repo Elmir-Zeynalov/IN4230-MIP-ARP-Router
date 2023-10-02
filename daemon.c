@@ -81,7 +81,6 @@ int main(int argc, char *argv[])
 	
 	raw_sock = create_raw_socket();
 	init_ifs(&local_ifs, raw_sock);
-
 	for(int i = 0; i < local_ifs.ifn; i++) {
 		print_mac_addr(local_ifs.addr[i].sll_addr,6);
 	}
@@ -93,7 +92,7 @@ int main(int argc, char *argv[])
 		close(raw_sock);
 		exit(EXIT_FAILURE);
 	}
-
+	printf("epollCreated\n");
 	/* Add RAW socket to epoll */
 	ev.events = EPOLLIN|EPOLLHUP;
 	ev.data.fd = raw_sock;
@@ -103,9 +102,14 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
+	
 
-	/* Send ARP request to know the neighbor next door */
-	if(strcmp(argv[3], "send"))
+	/*
+	 * TODO: Remove this 
+	 * This is only used for testing purposes....
+	 *
+	 */
+	if(strcmp(argv[3], "send") == 0)
 	{
 		printf("Sending Broadcast on all interfazes\n");
 		send_arp_request(&local_ifs);

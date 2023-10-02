@@ -178,6 +178,9 @@ int send_arp_request(struct ifs_data *ifs)
 	/*
 	 * Might have to send the message on ALL the interfaces ?? 
 	 */
+If you want to send a message on multiple interfaces, you'll need to call sendmsg separately for each interface.
+
+	printf("Interfaces: %d\n", ifs->ifn);	
 	msg->msg_name		= &(ifs->addr[0]);
 	msg->msg_namelen	= sizeof(struct sockaddr_ll);
 	msg->msg_iovlen		= 2;
