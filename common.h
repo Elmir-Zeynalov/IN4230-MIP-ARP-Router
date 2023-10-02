@@ -8,7 +8,7 @@
 #define MAX_EVENTS	10
 #define MAX_IF		3
 #define ETH_BROADCAST	{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
-
+#define MAC_ADDR_LENGTH 6
 
 struct ether_frame {
 	uint8_t	dst_addr[6];
@@ -32,5 +32,7 @@ void get_mac_from_interfaces(struct ifs_data *);
 void print_mac_addr(uint8_t *, size_t);
 void init_ifs(struct ifs_data *, int);
 int create_raw_socket(void);
+int handle_arp_packet(struct ifs_data *ifs);
+int send_arp_request(struct ifs_data *ifs);
 
 #endif // !DEBUG
