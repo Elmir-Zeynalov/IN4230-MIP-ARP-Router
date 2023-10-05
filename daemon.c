@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
 			break;
 		} else if (events->data.fd == raw_sock) {
 			printf("\n<info> The neighbor is initiating a handshake\n");
-			rc = handle_arp_packet(&local_ifs);
+			rc = handle_arp_packet(&local_ifs, &MIP_address);
 			if (rc < 1) {
 				perror("recv");
 				break;

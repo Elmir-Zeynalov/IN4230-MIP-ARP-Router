@@ -102,7 +102,7 @@ int check_if_broadcast(uint8_t *mac_address)
 	return 1;
 }
 
-int handle_arp_packet(struct ifs_data *ifs)
+int handle_arp_packet(struct ifs_data *ifs, uint8_t *my_mip_addr)
 {
 	struct sockaddr_ll so_name;
 	
@@ -140,6 +140,9 @@ int handle_arp_packet(struct ifs_data *ifs)
 	printf("Checking  header\n");
 	print_mip_frame(&mip_hdr);
 
+	printf("Checking if the the Message is meant for me?\n");
+	printf("Result: %d\n",mip_hdr.dst_addr == *my_mip_addr);
+
 	return 1;
 }
 
@@ -156,7 +159,7 @@ int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip)
 	struct mip_frame	mip_hdr;
 
 	struct msghdr	*msg;
-		struct iovec	msgvec[2];
+	struct iovec	msgvec[2];
 	int rc;
 	
 	uint8_t dst_addr[] = ETH_BROADCAST;

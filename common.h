@@ -32,7 +32,7 @@ void get_mac_from_interfaces(struct ifs_data *);
 void print_mac_addr(uint8_t *, size_t);
 void init_ifs(struct ifs_data *, int);
 int create_raw_socket(void);
-int handle_arp_packet(struct ifs_data *ifs);
+int handle_arp_packet(struct ifs_data *ifs, uint8_t *my_src_mip);
 int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip);
 
 #endif // !DEBUG
