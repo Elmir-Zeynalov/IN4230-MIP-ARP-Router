@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 	int hflag = 0;
 	int dflag = 0;
 	char *socket_upper = NULL;
-	char *MIP_address = NULL;
+	uint8_t MIP_address;
 	
 	struct ifs_data local_ifs;
 	int raw_sock, rc; 
@@ -74,12 +74,14 @@ int main(int argc, char *argv[])
 	}
 	
 	socket_upper = argv[dflag ? 2 : 1];
-	MIP_address = argv[dflag ? 3 : 2];
+	MIP_address = atoi(argv[dflag ? 3 : 2]);
 
 	printf("Socket Upper: %s\n", socket_upper);
-	printf("MIP Address: %s\n", MIP_address);
+	printf("MIP Address: %d\n", MIP_address);
 	
 	raw_sock = create_raw_socket();
+
+	printf("Printing all interfaces\n");
 	init_ifs(&local_ifs, raw_sock);
 	for(int i = 0; i < local_ifs.ifn; i++) {
 		print_mac_addr(local_ifs.addr[i].sll_addr,6);
@@ -109,10 +111,12 @@ int main(int argc, char *argv[])
 	 * This is only used for testing purposes....
 	 *
 	 */
+
+	uint8_t dest_MIP = 10;
 	if(strcmp(argv[3], "send") == 0)
 	{
 		printf("Sending Broadcast on all interfazes\n");
-		send_arp_request(&local_ifs);
+		send_arp_request(&local_ifs, &MIP_address, &dest_MIP);
 	}
 
 	/* epoll_wait forever for incoming packets */

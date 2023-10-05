@@ -112,7 +112,6 @@ int handle_arp_packet(struct ifs_data *ifs)
 	struct msghdr	msg = {0};
 	struct iovec	msgvec[2];
 	int rc;
-
 	/* Frame header */
 	msgvec[0].iov_base	= &frame_hdr;
 	msgvec[0].iov_len	= sizeof(struct ether_frame);
@@ -135,15 +134,21 @@ int handle_arp_packet(struct ifs_data *ifs)
 		perror("sendmsg");
 		return -1;
 	}
-
+	printf("***\n Received Message from link: ");
+	print_mac_addr(frame_hdr.src_addr, 6);
+	printf("***\n\n");
 	printf("Checking  header\n");
 	print_mip_frame(&mip_hdr);
 
 	return 1;
 }
 
-
-int send_arp_request(struct ifs_data *ifs)
+/*
+ * Method that sends a broadcast message on all interfaces.
+ *
+ * 
+ */
+int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip)
 {
 	struct sockaddr_ll so_name;
 	
@@ -151,20 +156,23 @@ int send_arp_request(struct ifs_data *ifs)
 	struct mip_frame	mip_hdr;
 
 	struct msghdr	*msg;
-	struct iovec	msgvec[2];
+		struct iovec	msgvec[2];
 	int rc;
 	
 	uint8_t dst_addr[] = ETH_BROADCAST;
 	memcpy(frame_hdr.dst_addr, dst_addr, 6);
-	memcpy(frame_hdr.src_addr, ifs->addr[0].sll_addr, 6);
+	//memcpy(frame_hdr.src_addr, ifs->addr[0].sll_addr, 6);
 	frame_hdr.eth_proto[0] = frame_hdr.eth_proto[1] = 0xFF;
+	
+	printf("printing some stuff [DST_MIP] = %u\n", *dst_mip);
+	printf("printing some stuff [SRC_MIP] = %u\n", *src_mip);
+	mip_hdr.dst_addr = *dst_mip;
+	mip_hdr.src_addr = *src_mip;
 
-	memcpy(mip_hdr.dst_addr, dst_addr, 6);
-	memcpy(mip_hdr.src_addr, ifs->addr[0].sll_addr, 6);
 	mip_hdr.ttl = 1;
 	mip_hdr.sdu_len = 32;
-	mip_hdr.sdu_type = 1;
-
+	mip_hdr.sdu_type = MIP_ARP;
+	
 	/* frame header */
 	msgvec[0].iov_base	= &frame_hdr;
 	msgvec[0].iov_len	= sizeof(struct ether_frame);
@@ -173,28 +181,48 @@ int send_arp_request(struct ifs_data *ifs)
 	msgvec[1].iov_base	= &mip_hdr;
 	msgvec[1].iov_len	= sizeof(struct mip_frame);
 
-	msg = (struct msghdr *)calloc(1, sizeof(struct msghdr));
-
 	/*
-	 * Might have to send the message on ALL the interfaces ?? 
+	 * We loop over all of the interfaces and send a message on each interface.
 	 */
-If you want to send a message on multiple interfaces, you'll need to call sendmsg separately for each interface.
-
+	int i;
 	printf("Interfaces: %d\n", ifs->ifn);	
-	msg->msg_name		= &(ifs->addr[0]);
-	msg->msg_namelen	= sizeof(struct sockaddr_ll);
-	msg->msg_iovlen		= 2;
-	msg->msg_iov		= msgvec;
-
-	printf("We are sending the arp request message (aka. Broadcast message)\n");
-	rc = sendmsg(ifs->rsock, msg, 0);
-	if(rc == -1)
+	printf("Sending on interface: \n");
+	for(i = 0; i < ifs->ifn; i++)
 	{
-		perror("sendmsg");
+		print_mac_addr(ifs->addr[i].sll_addr,6);
+		printf("\t-%d: %d:%d:%d:%d:%d:%d\n",i, 
+			ifs->addr[i].sll_addr[0],
+			ifs->addr[i].sll_addr[1],
+			ifs->addr[i].sll_addr[2],
+			ifs->addr[i].sll_addr[3],
+			ifs->addr[i].sll_addr[4],
+			ifs->addr[i].sll_addr[5]);
+		memcpy(frame_hdr.src_addr, ifs->addr[i].sll_addr, 6);
+
+		msg = (struct msghdr *)calloc(1,sizeof(struct msghdr));
+
+		msg->msg_name		= &(ifs->addr[i]);
+		msg->msg_namelen	= sizeof(struct sockaddr_ll);
+		msg->msg_iovlen		= 2;
+		msg->msg_iov		= msgvec;
+		printf("Message is constructed!\n");
+		
+		printf("***\nWe are sending the arp request message (aka. Broadcast message)" 
+			"On interface: ");
+		print_mac_addr(ifs->addr[i].sll_addr, 6);
+		printf("***\n\n");
+
+		rc = sendmsg(ifs->rsock, msg, 0);
+		if(rc == -1)
+		{
+			perror("sendmsg");
+			free(msg);
+			return -1;
+		}
 		free(msg);
-		return -1;
 	}
 
-	free(msg);
+
+	//free(msg);
 	return rc;
 }
