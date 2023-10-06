@@ -146,16 +146,17 @@ int handle_arp_packet(struct ifs_data *ifs, uint8_t *my_mip_addr)
 	printf("Result: %d\n", mip_meant_for_me);
 	if(mip_meant_for_me)
 	{
-		send_arp_response(ifs,&so_name,frame_hdr);
+		send_arp_response(ifs,&so_name, frame_hdr, mip_hdr);
 	}
 
 	return 1;
 }
 
-int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name, struct ether_frame frame)
+int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name, struct ether_frame frame, struct mip_frame mip_hdr)
 {
 	struct msghdr *msg;
 	struct iovec msgvec[2];
+
 	int rc;
 
 	/* Swap MAC addresses of the ether_frame to send back (unicast) the ARP
@@ -175,13 +176,19 @@ int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name, struct 
 	msgvec[0].iov_base = &frame;
 	msgvec[0].iov_len  = sizeof(struct ether_frame);
 
+	msgvec[1].iov_base	= &mip_hdr;
+	msgvec[1].iov_len	= sizeof(struct mip_frame);
+	
+	printf("\n[Printing ARP_RESPONNEE]\n\n");
+	print_mip_frame(&mip_hdr);
+	printf("**********************\n\n");
 	/* Allocate a zeroed-out message info struct */
 	msg = (struct msghdr *)calloc(1, sizeof(struct msghdr));
 
 	/* Fill out message metadata struct */
 	msg->msg_name	 = so_name;
 	msg->msg_namelen = sizeof(struct sockaddr_ll);
-	msg->msg_iovlen	 = 1;
+	msg->msg_iovlen	 = 2;
 	msg->msg_iov	 = msgvec;
 
 	/* Construct and send message */
@@ -203,6 +210,11 @@ int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name, struct 
 
 	return rc;
 }
+
+
+
+
+
 
 /*
  * Method that sends a broadcast message on all interfaces.
