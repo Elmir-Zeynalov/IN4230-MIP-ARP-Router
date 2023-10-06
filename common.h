@@ -9,6 +9,7 @@
 #define MAX_IF		3
 #define ETH_BROADCAST	{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 #define MAC_ADDR_LENGTH 6
+//#define ETH_P_MIP	0x88B5
 
 struct ether_frame {
 	uint8_t	dst_addr[6];
@@ -33,6 +34,7 @@ void print_mac_addr(uint8_t *, size_t);
 void init_ifs(struct ifs_data *, int);
 int create_raw_socket(void);
 int handle_arp_packet(struct ifs_data *ifs, uint8_t *my_src_mip);
+int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name,struct ether_frame frame);
 int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip);
 
 #endif // !DEBUG

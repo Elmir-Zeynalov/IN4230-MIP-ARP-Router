@@ -1,5 +1,6 @@
 #include <bits/types/struct_iovec.h>
 #include <linux/if_packet.h>
+#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -73,7 +74,7 @@ void init_ifs(struct ifs_data *ifs, int rsock)
 int create_raw_socket(void)
 {
 	int sd;
-	short unsigned int protocol = 0xFFFF;
+	short unsigned int protocol = 0xFFFF;//ETH_P_MIP;
 
 	sd = socket(AF_PACKET, SOCK_RAW, htons(protocol));
 	if(sd == -1)
@@ -141,9 +142,66 @@ int handle_arp_packet(struct ifs_data *ifs, uint8_t *my_mip_addr)
 	print_mip_frame(&mip_hdr);
 
 	printf("Checking if the the Message is meant for me?\n");
-	printf("Result: %d\n",mip_hdr.dst_addr == *my_mip_addr);
+	int mip_meant_for_me = mip_hdr.dst_addr == *my_mip_addr;
+	printf("Result: %d\n", mip_meant_for_me);
+	if(mip_meant_for_me)
+	{
+		send_arp_response(ifs,&so_name,frame_hdr);
+	}
 
 	return 1;
+}
+
+int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name, struct ether_frame frame)
+{
+	struct msghdr *msg;
+	struct iovec msgvec[2];
+	int rc;
+
+	/* Swap MAC addresses of the ether_frame to send back (unicast) the ARP
+	 * response */
+	memcpy(frame.dst_addr, frame.src_addr, 6);
+
+	/* Find the MAC address of the interface where the broadcast packet came
+	 * from. We use sll_ifindex recorded in the so_name. */
+	for (int i = 0; i < ifs->ifn; i++) {
+		if (ifs->addr[i].sll_ifindex == so_name->sll_ifindex)
+		memcpy(frame.src_addr, ifs->addr[i].sll_addr, 6);
+	}
+	/* Match the ethertype in packet_socket.c: */
+	frame.eth_proto[0] = frame.eth_proto[1] = 0xFF;
+
+	/* Point to frame header */
+	msgvec[0].iov_base = &frame;
+	msgvec[0].iov_len  = sizeof(struct ether_frame);
+
+	/* Allocate a zeroed-out message info struct */
+	msg = (struct msghdr *)calloc(1, sizeof(struct msghdr));
+
+	/* Fill out message metadata struct */
+	msg->msg_name	 = so_name;
+	msg->msg_namelen = sizeof(struct sockaddr_ll);
+	msg->msg_iovlen	 = 1;
+	msg->msg_iov	 = msgvec;
+
+	/* Construct and send message */
+	rc = sendmsg(ifs->rsock, msg, 0);
+	if (rc == -1) {
+		perror("sendmsg");
+		free(msg);
+		return -1;
+	}
+
+	printf("Nice to meet you ");
+	print_mac_addr(frame.dst_addr, 6);
+
+	printf("I am ");
+	print_mac_addr(frame.src_addr, 6);
+
+	/* Remember that we allocated this on the heap; free it */
+	free(msg);
+
+	return rc;
 }
 
 /*
@@ -165,7 +223,7 @@ int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip)
 	uint8_t dst_addr[] = ETH_BROADCAST;
 	memcpy(frame_hdr.dst_addr, dst_addr, 6);
 	//memcpy(frame_hdr.src_addr, ifs->addr[0].sll_addr, 6);
-	frame_hdr.eth_proto[0] = frame_hdr.eth_proto[1] = 0xFF;
+	frame_hdr.eth_proto[0] = frame_hdr.eth_proto[1] = 0xFF;// htons(ETH_P_MIP);
 	
 	printf("printing some stuff [DST_MIP] = %u\n", *dst_mip);
 	printf("printing some stuff [SRC_MIP] = %u\n", *src_mip);
