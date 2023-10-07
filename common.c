@@ -108,23 +108,31 @@ int handle_arp_packet(struct ifs_data *ifs, uint8_t *my_mip_addr)
 	struct sockaddr_ll so_name;
 	
 	struct ether_frame	frame_hdr;
-	struct mip_frame	mip_hdr;
+	//struct mip_pdu		pdu;
 
 	struct msghdr	msg = {0};
-	struct iovec	msgvec[2];
+	struct iovec	msgvec[3];
 	int rc;
+	
+	struct mip_header	header;
+	struct mip_sdu		sdu;
+	//pdu.header = (struct mip_header *)malloc(sizeof(struct mip_header));
+	//pdu.sdu = (struct mip_sdu *)malloc(sizeof(struct mip_sdu));
+
 	/* Frame header */
 	msgvec[0].iov_base	= &frame_hdr;
 	msgvec[0].iov_len	= sizeof(struct ether_frame);
 	
 	/* MIP header */
-	msgvec[1].iov_base	= &mip_hdr;
-	msgvec[1].iov_len	= sizeof(struct mip_frame);
-	
+	msgvec[1].iov_base	= &header;
+	msgvec[1].iov_len	= sizeof(struct mip_header);
+
+	msgvec[2].iov_base	= &sdu;
+	msgvec[2].iov_len	= sizeof(struct mip_sdu);
 
 	msg.msg_name	=	&so_name;
 	msg.msg_namelen	=	sizeof(struct sockaddr_ll);
-	msg.msg_iovlen	=	2;
+	msg.msg_iovlen	=	3;
 	msg.msg_iov	=	msgvec;
 	
 	printf("Receving message with MIP header\n");
@@ -138,25 +146,35 @@ int handle_arp_packet(struct ifs_data *ifs, uint8_t *my_mip_addr)
 	printf("***\n Received Message from link: ");
 	print_mac_addr(frame_hdr.src_addr, 6);
 	printf("***\n\n");
-	printf("Checking  header\n");
-	print_mip_frame(&mip_hdr);
+	
+	printf("******************Checking received package***********************\n");
+	print_mip_header(&header);
+	print_mip_sdu(&sdu);
 
 	printf("Checking if the the Message is meant for me?\n");
-	int mip_meant_for_me = mip_hdr.dst_addr == *my_mip_addr;
-	printf("Result: %d\n", mip_meant_for_me);
+	
+	printf("MIP Type: %d\n", sdu.type);
+	int mip_meant_for_me = sdu.mip_addr == *my_mip_addr;
+	printf("Result: %d . [%d] == [%d]\n", mip_meant_for_me, *my_mip_addr, sdu.mip_addr);
+	
 	if(mip_meant_for_me)
 	{
-		send_arp_response(ifs,&so_name, frame_hdr, mip_hdr);
+		send_arp_response(ifs,&so_name, frame_hdr, &header, &sdu, my_mip_addr);
 	}
 
+	//free(pdu.header);
+	//free(pdu.sdu);
 	return 1;
 }
 
-int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name, struct ether_frame frame, struct mip_frame mip_hdr)
+int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name, struct ether_frame frame, struct mip_header *m_header, struct mip_sdu *m_sdu, uint8_t *my_mip_addr)
 {
 	struct msghdr *msg;
-	struct iovec msgvec[2];
-
+	struct iovec msgvec[3];
+	struct mip_header response_header;
+	struct mip_sdu response_sdu;
+	//struct mip_pdu *response_pdu;
+	
 	int rc;
 
 	/* Swap MAC addresses of the ether_frame to send back (unicast) the ARP
@@ -171,24 +189,57 @@ int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name, struct 
 	}
 	/* Match the ethertype in packet_socket.c: */
 	frame.eth_proto[0] = frame.eth_proto[1] = 0xFF;
+	
+	//fix up the MIP packet
+	/*
+	response_pdu = (struct mip_pdu *)calloc(1, sizeof(struct mip_pdu));
+	response_pdu->header = (struct mip_header *)malloc(sizeof(struct mip_header));
+	response_pdu->sdu = (struct mip_sdu *)malloc(sizeof(struct mip_sdu));
+
+	//HEADER:
+	response_pdu->header->sdu_type	= MIP_ARP;
+	response_pdu->header->src_addr	= *my_mip_addr; 
+	response_pdu->header->dst_addr	= pdu->header->src_addr;
+	//SDU
+	response_pdu->sdu->type		= 0x01; //Repone to a Broadcast request
+	response_pdu->sdu->mip_addr	= pdu->sdu->mip_addr; //MIP THAT MATCHED
+	*/ 
+
+
+	response_header = construct_mip_header(m_header->src_addr, *my_mip_addr, 12, 32, MIP_ARP);
+	response_sdu	= construct_mip_sdu(0x01, m_sdu->mip_addr);
+	// HEADER
+	/*response_header.src_addr	= *my_mip_addr;
+	response_header.dst_addr	= m_header->src_addr;
+	response_header.ttl		= 12;
+	response_header.sdu_type	= MIP_ARP;
+	response_header.sdu_len		= 32;
+	// SDU
+	response_sdu.type		= 0x01;
+	response_sdu.mip_addr		= m_sdu->mip_addr;
+	*/
 
 	/* Point to frame header */
-	msgvec[0].iov_base = &frame;
-	msgvec[0].iov_len  = sizeof(struct ether_frame);
+	msgvec[0].iov_base	= &frame;
+	msgvec[0].iov_len	= sizeof(struct ether_frame);
 
-	msgvec[1].iov_base	= &mip_hdr;
-	msgvec[1].iov_len	= sizeof(struct mip_frame);
+	msgvec[1].iov_base	= &response_header;
+	msgvec[1].iov_len	= sizeof(struct mip_header);
+
+	msgvec[2].iov_base	= &response_sdu;
+	msgvec[2].iov_len	= sizeof(struct mip_sdu);
 	
 	printf("\n[Printing ARP_RESPONNEE]\n\n");
-	print_mip_frame(&mip_hdr);
-	printf("**********************\n\n");
+	print_mip_header(&response_header);
+	print_mip_sdu(&response_sdu);
+
 	/* Allocate a zeroed-out message info struct */
 	msg = (struct msghdr *)calloc(1, sizeof(struct msghdr));
 
 	/* Fill out message metadata struct */
 	msg->msg_name	 = so_name;
 	msg->msg_namelen = sizeof(struct sockaddr_ll);
-	msg->msg_iovlen	 = 2;
+	msg->msg_iovlen	 = 3;
 	msg->msg_iov	 = msgvec;
 
 	/* Construct and send message */
@@ -207,13 +258,12 @@ int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name, struct 
 
 	/* Remember that we allocated this on the heap; free it */
 	free(msg);
+	//free(response_pdu->header);
+	//free(response_pdu->sdu);
+	//free(response_pdu);
 
 	return rc;
 }
-
-
-
-
 
 
 /*
@@ -226,10 +276,9 @@ int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip)
 	struct sockaddr_ll so_name;
 	
 	struct ether_frame	frame_hdr;
-	struct mip_frame	mip_hdr;
 
 	struct msghdr	*msg;
-	struct iovec	msgvec[2];
+	struct iovec	msgvec[3];
 	int rc;
 	
 	uint8_t dst_addr[] = ETH_BROADCAST;
@@ -237,28 +286,54 @@ int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip)
 	//memcpy(frame_hdr.src_addr, ifs->addr[0].sll_addr, 6);
 	frame_hdr.eth_proto[0] = frame_hdr.eth_proto[1] = 0xFF;// htons(ETH_P_MIP);
 	
-	printf("printing some stuff [DST_MIP] = %u\n", *dst_mip);
-	printf("printing some stuff [SRC_MIP] = %u\n", *src_mip);
-	mip_hdr.dst_addr = *dst_mip;
-	mip_hdr.src_addr = *src_mip;
+	printf("---\t[DST_MIP_WE_ARE_TRYING_TO_FIND] = %u\n", *dst_mip);
+	printf("---\t[REQUESTORS_SRC_MIP] = %u\n", *src_mip);
 
-	mip_hdr.ttl = 1;
-	mip_hdr.sdu_len = 32;
-	mip_hdr.sdu_type = MIP_ARP;
+	struct mip_header	header;
+	struct mip_sdu		sdu;
+	/*
+	pdu.header->src_addr	= *src_mip; //requestors mip
+	pdu.header->dst_addr	= 0xFF; //We dont know so we set this to 0xFF
+	pdu.header->ttl		= 1;
+	pdu.header->sdu_len	= 32;
+	pdu.header->sdu_type	= MIP_ARP;
 	
+	pdu.sdu->type		= 0x00;
+	pdu.sdu->mip_addr	= *dst_mip; //the mip we are trying to find 
+	*/ 
+	
+	header = construct_mip_header(0xFF, *src_mip, 1, 32, MIP_ARP);
+	sdu = construct_mip_sdu(0x00, *dst_mip);		
+	/*
+	header.src_addr		= *src_mip;
+	header.dst_addr		= 0xFF;
+	header.ttl		= 1;
+	header.sdu_len		= 32;
+	header.sdu_type		= MIP_ARP;
+	
+	sdu.type		= 0x00;
+	sdu.mip_addr		= *dst_mip;
+	*/  
+
 	/* frame header */
 	msgvec[0].iov_base	= &frame_hdr;
 	msgvec[0].iov_len	= sizeof(struct ether_frame);
 
 	/* MIP header */
-	msgvec[1].iov_base	= &mip_hdr;
-	msgvec[1].iov_len	= sizeof(struct mip_frame);
+	msgvec[1].iov_base	= &header;
+	msgvec[1].iov_len	= sizeof(struct mip_header);
 
+	msgvec[2].iov_base	= &sdu;
+	msgvec[2].iov_len	= sizeof(struct mip_sdu);
 	/*
 	 * We loop over all of the interfaces and send a message on each interface.
 	 */
 	int i;
-	printf("Interfaces: %d\n", ifs->ifn);	
+	printf("Interfaces: %d\n", ifs->ifn);
+	printf("--- Sending message ---\n");;
+	print_mip_header(&header);
+	print_mip_sdu(&sdu);
+
 	printf("Sending on interface: \n");
 	for(i = 0; i < ifs->ifn; i++)
 	{
@@ -276,7 +351,7 @@ int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip)
 
 		msg->msg_name		= &(ifs->addr[i]);
 		msg->msg_namelen	= sizeof(struct sockaddr_ll);
-		msg->msg_iovlen		= 2;
+		msg->msg_iovlen		= 3;
 		msg->msg_iov		= msgvec;
 		printf("Message is constructed!\n");
 		
@@ -294,7 +369,9 @@ int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip)
 		}
 		free(msg);
 	}
-
+	
+	//free(pdu.header);
+	//free(pdu.sdu);
 
 	//free(msg);
 	return rc;
