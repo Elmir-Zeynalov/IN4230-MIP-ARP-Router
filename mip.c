@@ -24,7 +24,6 @@ void print_mip_sdu(struct mip_sdu *s)
 
 struct mip_header construct_mip_header(uint8_t dst_addr, uint8_t src_addr, uint8_t ttl, uint16_t sdu_len, uint8_t sdu_type)
 {
-
 	struct mip_header header;
 	header.src_addr = src_addr;
 	header.dst_addr = dst_addr;
@@ -33,7 +32,6 @@ struct mip_header construct_mip_header(uint8_t dst_addr, uint8_t src_addr, uint8
 	header.sdu_type	= sdu_type;
 
 	return header;
-
 }
 
 struct mip_sdu construct_mip_sdu(uint8_t type, uint8_t mip_addr)
@@ -43,5 +41,4 @@ struct mip_sdu construct_mip_sdu(uint8_t type, uint8_t mip_addr)
 	sdu.mip_addr = mip_addr;
 
 	return sdu;
-
 }

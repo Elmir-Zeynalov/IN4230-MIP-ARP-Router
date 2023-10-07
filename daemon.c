@@ -12,7 +12,6 @@
 #include <ifaddrs.h>			/* getifaddrs */
 
 #include "common.h"
-
 void usage(char *arg)
 {
 	printf("Usage: %s [-h] [-d] <socket_upper> <MIP_address>\n"
