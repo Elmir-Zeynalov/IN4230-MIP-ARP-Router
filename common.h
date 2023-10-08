@@ -7,7 +7,7 @@
 
 #include "mip.h"
 #include "ether.h"
-
+#include "cache.h" 
 
 #define MAX_EVENTS	10
 #define MAX_IF		3
@@ -21,18 +21,16 @@ struct ifs_data {
 	int ifn;
 };
 
-struct arp_entry {
-	char *MIP_address;
-	struct sockaddr_ll addr;
-};
-
-
 void get_mac_from_interfaces(struct ifs_data *);
 void print_mac_addr(uint8_t *, size_t);
 void init_ifs(struct ifs_data *, int);
 int create_raw_socket(void);
-int handle_arp_packet(struct ifs_data *ifs, uint8_t *my_src_mip);
+int handle_arp_packet(struct Cache *cache, struct ifs_data *ifs, uint8_t *my_src_mip);
 int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name,struct ether_frame frame, struct mip_header *m_header, struct mip_sdu *m_sdu, uint8_t *my_src_mip);
 int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip);
+
+
+
+int send_msg(struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip, char *buf, size_t buf_len);
 
 #endif // !DEBUG

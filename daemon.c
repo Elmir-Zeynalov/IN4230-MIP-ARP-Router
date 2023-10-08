@@ -30,6 +30,8 @@ int main(int argc, char *argv[])
 	char *socket_upper = NULL;
 	uint8_t MIP_address;
 	
+	struct Cache cache;
+
 	struct ifs_data local_ifs;
 	int raw_sock, rc; 
 
@@ -112,10 +114,12 @@ int main(int argc, char *argv[])
 	 */
 
 	uint8_t dest_MIP = 10;
+	char buffer[] = "Bufer Data";
 	if(strcmp(argv[3], "send") == 0)
 	{
 		printf("Sending Broadcast on all interfazes\n");
-		send_arp_request(&local_ifs, &MIP_address, &dest_MIP);
+		//send_arp_request(&local_ifs, &MIP_address, &dest_MIP);
+		send_msg(&local_ifs, &MIP_address, &dest_MIP, buffer, strlen(buffer));
 	}
 
 	/* epoll_wait forever for incoming packets */
@@ -126,7 +130,7 @@ int main(int argc, char *argv[])
 			break;
 		} else if (events->data.fd == raw_sock) {
 			printf("\n<info> The neighbor is initiating a handshake\n");
-			rc = handle_arp_packet(&local_ifs, &MIP_address);
+			rc = handle_arp_packet(&cache, &local_ifs, &MIP_address);
 			if (rc < 1) {
 				perror("recv");
 				break;
