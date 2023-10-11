@@ -19,6 +19,7 @@ struct ifs_data {
 	struct sockaddr_ll addr[MAX_IF];
 	int rsock;
 	int ifn;
+	int unix_sock;
 };
 
 void get_mac_from_interfaces(struct ifs_data *);
@@ -31,6 +32,6 @@ int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip);
 
 
 
-int send_msg(struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip, char *buf, size_t buf_len);
+int send_msg(struct Cache *cache, struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip, char *buf, size_t buf_len);
 
 #endif // !DEBUG

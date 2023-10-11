@@ -12,7 +12,8 @@
 struct CacheEntry {
     uint8_t mip_address;
     uint8_t mac_address[6];
-    struct sockaddr_ll interface;
+    //struct sockaddr_ll interface;
+    int index;
 };
 
 struct Cache {
@@ -21,7 +22,7 @@ struct Cache {
 };
 
 void initializeCache(struct Cache* cache);
-void addToCache(struct Cache* cache, uint8_t mip, uint8_t mac[6], struct sockaddr_ll intf);
+void addToCache(struct Cache* cache, uint8_t mip, uint8_t mac[6], int index);
 struct CacheEntry* isInCache(struct Cache* cache, uint8_t mip);
 void deleteFromCache(struct Cache* cache, uint8_t mip);
 

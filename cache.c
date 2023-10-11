@@ -6,12 +6,13 @@ void initializeCache(struct Cache *cache) {
 }
 
 // Add an entry to the cache
-void addToCache(struct Cache *cache, uint8_t mip, uint8_t mac[6], struct sockaddr_ll intf) {
+void addToCache(struct Cache *cache, uint8_t mip, uint8_t mac[6], int index) { // struct sockaddr_ll intf) {
     if (cache->num_entries < CACHE_SIZE) {
         struct CacheEntry* newEntry = &(cache->entries[cache->num_entries]);
         newEntry->mip_address = mip;
         memcpy(newEntry->mac_address, mac, 6);
-        newEntry->interface = intf;
+        //newEntry->interface = intf;
+        newEntry->index = index;
         cache->num_entries++;
     } else {
         printf("Cache is full. Cannot add more entries.\n");

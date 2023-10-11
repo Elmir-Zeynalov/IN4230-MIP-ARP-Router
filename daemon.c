@@ -12,6 +12,8 @@
 #include <ifaddrs.h>			/* getifaddrs */
 
 #include "common.h"
+#include "unix_utils.h"
+
 void usage(char *arg)
 {
 	printf("Usage: %s [-h] [-d] <socket_upper> <MIP_address>\n"
@@ -21,6 +23,41 @@ void usage(char *arg)
 		"\tsocket_upper: pathname of the UNIX socket used to interface with upper layers\n"
 		"\tMIP address: the MIP address to assign to this host\n", arg);
 }
+
+struct information {
+    uint8_t destination_host;
+    char message[256];
+};
+
+void handle_client(struct Cache *cache, int fd, struct ifs_data local_ifs, uint8_t MIP_address)
+{
+	char buf[256];
+	int rc;
+	
+	struct information received_info;
+
+
+	memset(buf,0,sizeof(buf));
+	//rc = read(fd,buf,sizeof(buf));
+	rc = read(fd, &received_info, sizeof(struct information));
+	if(rc <= 0)
+	{
+		close(fd);
+		printf("<%d> has lef thte chat...\n", fd);
+		return;
+	}
+	printf("Received destination host: %d\n", received_info.destination_host);
+	printf("Received message: %s\n", received_info.message);
+	
+	if (strncmp(received_info.message, "PONG:", 4) == 0) {
+		printf("The first 4 characters match!\n");
+	} else {
+		printf("The first 4 characters do not match.\n");
+	}
+	
+	send_msg(cache, &local_ifs, &MIP_address, &received_info.destination_host, received_info.message, strlen(received_info.message));
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -33,7 +70,9 @@ int main(int argc, char *argv[])
 	struct Cache cache;
 
 	struct ifs_data local_ifs;
-	int raw_sock, rc; 
+	int raw_sock, rc;
+	int unix_sock;
+	int accept_sd;
 
 	struct epoll_event ev, events[MAX_EVENTS];
 	int epollfd;
@@ -104,9 +143,12 @@ int main(int argc, char *argv[])
 		close(raw_sock);
 		exit(EXIT_FAILURE);
 	}
-
 	
+	unix_sock = prepare_server_sock(socket_upper);
+	add_to_epoll_table(epollfd, &ev, unix_sock);
 
+	//local_ifs.unix_sock = unix_sock;	
+	printf("UNIX FROM MAIN:%d\n", unix_sock);	
 	/*
 	 * TODO: Remove this 
 	 * This is only used for testing purposes....
@@ -119,8 +161,9 @@ int main(int argc, char *argv[])
 	{
 		printf("Sending Broadcast on all interfazes\n");
 		//send_arp_request(&local_ifs, &MIP_address, &dest_MIP);
-		send_msg(&local_ifs, &MIP_address, &dest_MIP, buffer, strlen(buffer));
+		send_msg(&cache,&local_ifs, &MIP_address, &dest_MIP, buffer, strlen(buffer));
 	}
+	int accepted_sd = -1;
 
 	/* epoll_wait forever for incoming packets */
 	while(1) {
@@ -135,10 +178,34 @@ int main(int argc, char *argv[])
 				perror("recv");
 				break;
 			}
+		} else if(events->data.fd == unix_sock){
+			//A UNIX connection
+			//PING CLIENT OR PING SERVER IS trying to connect on main listening socket.
+				
+			accept_sd = accept(unix_sock, NULL, NULL);
+			if (accept_sd == -1) {
+				perror("accept");
+				continue;
+			}
+
+			printf("<%d> joined the chat...\n", accept_sd);
+
+			/* Add the new socket to epoll table */
+			rc = add_to_epoll_table(epollfd, &ev, accept_sd);
+			if (rc == -1) {
+				close(unix_sock);
+				exit(EXIT_FAILURE);
+			}
+			accepted_sd = accept_sd;
+			local_ifs.unix_sock = accepted_sd;
+		}else{
+			//could be either PING or PONG
+			printf("Events.data.fd = %d\nAccepted_sd = %d\n", events->data.fd, accepted_sd);
+			handle_client(&cache,events->data.fd, local_ifs, MIP_address);
 		}
 	}
 
 	close(raw_sock);
-
+	unlink(SOCKET_NAME);
 	return 0;
 }
