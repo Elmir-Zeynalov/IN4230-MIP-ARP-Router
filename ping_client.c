@@ -70,9 +70,18 @@ void client(char *socket_lower, uint8_t *destination_host, char *message, size_t
 		struct epoll_event events[1];
 		
 
+		char *ping_message = (char *)malloc(strlen(message) + 6); //+6 because of PING:
+		if (ping_message == NULL) {
+				fprintf(stderr, "Memory allocation failed.\n");
+				return ;
+		}
+		strcpy(ping_message, "PING:");
+		strcat(ping_message, message);
+		printf("%s\n", ping_message);
+		
 		struct information info;
 		info.destination_host = *destination_host;
-		strncpy(info.message, message, sizeof(info.message));
+		strncpy(info.message, ping_message, sizeof(info.message));
 		info.message[sizeof(info.message)-1] = '\0'; // Ensure null-termination
 	
 		rc = write(sd, &info, sizeof(struct information));
@@ -85,11 +94,13 @@ void client(char *socket_lower, uint8_t *destination_host, char *message, size_t
 						perror("epoll_wait");
 						break;
 				}
+				printf("WE ount the wait!\n");
 				if(rc == 0) 
 				{
 						printf("Timeout\n");
 						break;
 				}
+				printf("NOT A TIMEOUT OMFG\n");
 				memset(buf,0, sizeof(buf));
 				if(events[0].events & EPOLLIN)
 				{
@@ -101,6 +112,8 @@ void client(char *socket_lower, uint8_t *destination_host, char *message, size_t
 								break;
 						}
 						printf("<%d>: %s\n", sd, buf);
+						printf("Brace, we are breaking!\n");
+						break;
 				}	
 				/*
 				memset(buf, 0, sizeof(buf));

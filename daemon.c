@@ -46,14 +46,18 @@ void handle_client(struct Cache *cache, int fd, struct ifs_data local_ifs, uint8
 		printf("<%d> has lef thte chat...\n", fd);
 		return;
 	}
-	printf("Received destination host: %d\n", received_info.destination_host);
-	printf("Received message: %s\n", received_info.message);
+	printf("Received destination host: [%d]\n", received_info.destination_host);
+	printf("Received message: [%s]\n", received_info.message);
 	
 	if (strncmp(received_info.message, "PONG:", 4) == 0) {
 		printf("The first 4 characters match! So we got a PONG!!\n");
+		printf("RELAYYYYY\n");
+		printf("PongMsg: [%s]\nInResponseToHost: [%d]\n", received_info.message, received_info.destination_host);
+		printf("Trying to relay the PONG response.\n");
+		send_msg(cache, &local_ifs, &MIP_address, received_info.destination_host, received_info.message, 255); 	
 	} else {
 		printf("The first 4 characters do not match.\n");
-		send_msg(cache, &local_ifs, &MIP_address, received_info.destination_host, received_info.message, strlen(received_info.message));
+		send_msg(cache, &local_ifs, &MIP_address, received_info.destination_host, received_info.message, 255);
 	}
 }
 

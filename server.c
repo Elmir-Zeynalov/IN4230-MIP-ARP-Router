@@ -15,13 +15,13 @@
 
 struct information {
                 uint8_t destination_host;
-                char message[256];
+                char message[255];
 };
 void server(char *socket_lower)
 {
                 struct sockaddr_un addr;
                 int        sd, rc;
-                char   buf[150];
+                char   buf[255];
 
                 sd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
                 if (sd < 0) {
@@ -78,8 +78,10 @@ void server(char *socket_lower)
                                 }
                                 memset(buf,0, sizeof(buf));
                                 if(events[0].events & EPOLLIN)
-                                {//We have an event! 
-                                                int read_rc = read(sd,buf,sizeof(buf));
+                                {
+                                                struct information info;
+
+                                                int read_rc = read(sd,&info,sizeof(struct information));
                                                 if(read_rc <= 0)
                                                 {
                                                                 close(sd);
@@ -87,15 +89,13 @@ void server(char *socket_lower)
                                                                 break;
                                                 }
 
-                                                printf("PONG_SERVER: %s\n", buf);
-                                                char pong_message[256]; // Assuming a maximum message length of 256, adjust as needed
-                                                sprintf(pong_message, "PONG:%s", buf);
-                                                printf("Message Relaying to daemon [%s]\n", pong_message);
+                                                printf("PONG_SERVER_RECEIVED MESSAGE: [%s]\n", buf);
+                                                //char pong_message[256]; // Assuming a maximum message length of 256, adjust as needed
+                                                //sprintf(pong_message, "PONG:%s", buf);
+                                                info.message[1] = 'O';
 
-                                                struct information info;
-                                                strcpy(info.message, pong_message);
-                                                info.destination_host = 0;
-                                                 
+                                                printf("Message Relaying to daemon [%s]\n", info.message);
+
                                                 int write_rc = write(sd, &info, sizeof(struct information));
                                 }
                 } while (1);
