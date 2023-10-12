@@ -29,7 +29,7 @@ struct information {
     char message[256];
 };
 
-void handle_client(struct Cache *cache, int fd, struct ifs_data local_ifs, uint8_t MIP_address)
+void handle_client(struct Cache *cache, struct Queue *queue, int fd, struct ifs_data local_ifs, uint8_t MIP_address)
 {
 	char buf[256];
 	int rc;
@@ -54,10 +54,10 @@ void handle_client(struct Cache *cache, int fd, struct ifs_data local_ifs, uint8
 		printf("RELAYYYYY\n");
 		printf("PongMsg: [%s]\nInResponseToHost: [%d]\n", received_info.message, received_info.destination_host);
 		printf("Trying to relay the PONG response.\n");
-		send_msg(cache, &local_ifs, &MIP_address, received_info.destination_host, received_info.message, 255); 	
+		send_msg(cache, queue, &local_ifs, &MIP_address, received_info.destination_host, received_info.message, 255); 	
 	} else {
 		printf("The first 4 characters do not match.\n");
-		send_msg(cache, &local_ifs, &MIP_address, received_info.destination_host, received_info.message, 255);
+		send_msg(cache, queue, &local_ifs, &MIP_address, received_info.destination_host, received_info.message, 255);
 	}
 }
 
@@ -71,6 +71,7 @@ int main(int argc, char *argv[])
 	uint8_t MIP_address;
 	
 	struct Cache cache;
+	struct Queue queue;
 
 	struct ifs_data local_ifs;
 	int raw_sock, rc;
@@ -164,7 +165,7 @@ int main(int argc, char *argv[])
 	{
 		printf("Sending Broadcast on all interfazes\n");
 		//send_arp_request(&local_ifs, &MIP_address, &dest_MIP);
-		send_msg(&cache,&local_ifs, &MIP_address, dest_MIP, buffer, strlen(buffer));
+		//send_msg(&cache,&local_ifs, &MIP_address, dest_MIP, buffer, strlen(buffer));
 	}
 	int accepted_sd = -1;
 
@@ -176,7 +177,7 @@ int main(int argc, char *argv[])
 			break;
 		} else if (events->data.fd == raw_sock) {
 			printf("\n<info> The neighbor is initiating a handshake\n");
-			rc = handle_arp_packet(&cache, &local_ifs, &MIP_address);
+			rc = handle_arp_packet(&cache, &queue,  &local_ifs, &MIP_address);
 			if (rc < 1) {
 				perror("recv");
 				break;
@@ -204,7 +205,7 @@ int main(int argc, char *argv[])
 		}else{
 			//could be either PING or PONG
 			printf("Events.data.fd = %d\nAccepted_sd = %d\n", events->data.fd, accepted_sd);
-			handle_client(&cache,events->data.fd, local_ifs, MIP_address);
+			handle_client(&cache, &queue, events->data.fd, local_ifs, MIP_address);
 		}
 	}
 

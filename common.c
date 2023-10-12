@@ -14,6 +14,7 @@
 #include "common.h"
 #include "mip.h"
 #include "ping_utilities.h"
+#include "queue.h"
 /*
  * Print MAC address in hex format
  */
@@ -101,7 +102,7 @@ int create_raw_socket(void)
 }
 
 
-int handle_arp_packet(struct Cache *cache, struct ifs_data *ifs, uint8_t *my_mip_addr)
+int handle_arp_packet(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uint8_t *my_mip_addr)
 {
 	struct sockaddr_ll so_name;
 	struct ether_frame	frame_hdr;
@@ -109,7 +110,7 @@ int handle_arp_packet(struct Cache *cache, struct ifs_data *ifs, uint8_t *my_mip
 	struct iovec	msgvec[3];
 	struct mip_header	header;
 	uint8_t buf[255];
-
+				
 	int rc;
 	memset(buf, 0, sizeof(buf));	
 	/* Frame header */
@@ -170,6 +171,25 @@ int handle_arp_packet(struct Cache *cache, struct ifs_data *ifs, uint8_t *my_mip
 				printf("Cache index %d\n", index);
 				addToCache(cache, header.src_addr, frame_hdr.src_addr, index);
 				print_cache(cache);
+
+				//I got a response for a broadcast i sent looking for this MIP
+				//Now i can empty my queue and send it the PING
+				struct QueueEntry *queue_entry = isInQueue(queue, header.src_addr);
+				if(queue_entry != NULL){
+					printf("Queue contents:\n");
+					printf("\t-To MIP: [%d]\n\t-Message: [%s]\n\t-Len: [%lu]\n", queue_entry->mip_address, queue_entry->message, queue_entry->len);
+
+					struct CacheEntry *cache_entry = isInCache(cache, header.src_addr);
+
+					send_ping_message(cache_entry, ifs, my_mip_addr, &queue_entry->mip_address, queue_entry->message, queue_entry->len);
+
+					deleteFromQueue(queue, header.src_addr);
+
+				}else {
+					printf("NOTHING IN QUEUE\n");
+				}
+				printf("\n");
+
 			}
 		}
 
@@ -459,7 +479,7 @@ int send_ping_message(struct CacheEntry *cache_entry, struct ifs_data *ifs, uint
 // Define the structure for a cache entry
 }
 
-int send_msg(struct Cache *cache, struct ifs_data *ifs, uint8_t *src_mip, uint8_t dst_mip, char *buf, size_t buf_len)
+int send_msg(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uint8_t *src_mip, uint8_t dst_mip, char *buf, size_t buf_len)
 {
 	int rc;
 	struct CacheEntry *cache_entry = isInCache(cache, dst_mip);
@@ -478,6 +498,11 @@ int send_msg(struct Cache *cache, struct ifs_data *ifs, uint8_t *src_mip, uint8_
 		//we need to broadcast a message ...... 
 		printf("Damn, cache miss.... Need to broadcast.\n");
 		rc = send_arp_request(ifs, src_mip, dst_mip); 
+		
+		//Didnt find the MIP in cache so i ended up broadcasting
+		//But i need to store the message. 
+		printf("Storing message [%s] in buffer until further notice.\n", buf);
+		addToQueue(queue, dst_mip, buf, buf_len);
 	}
 
 	return rc;

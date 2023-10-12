@@ -1,11 +1,7 @@
 #ifndef _CACHE_H
 #define _CACHE_H
 
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
-#include <linux/if_packet.h>
-
+#include "imports.h"
 #define CACHE_SIZE 4
 
 // Define the structure for a cache entry

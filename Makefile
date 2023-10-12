@@ -1,8 +1,8 @@
 CC = gcc
 CFLAGS = -g -std=gnu11 -Wall -Wextra
 
-mipd:daemon.c common.c cache.c unix_utils.c ping_client.c
-	$(CC) $(CFLAGS) daemon.c  common.c mip.c cache.c unix_utils.c ping_client.c -o mipd
+mipd:daemon.c common.c cache.c unix_utils.c ping_client.c queue.c
+	$(CC) $(CFLAGS) daemon.c  common.c mip.c cache.c unix_utils.c ping_client.c queue.c -o mipd
 
 ping_client: ping_client.c client.c
 	$(CC) $(CFLAGS) ping_client.c client.c -o ping_client
