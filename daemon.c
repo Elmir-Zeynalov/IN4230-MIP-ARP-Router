@@ -50,12 +50,11 @@ void handle_client(struct Cache *cache, int fd, struct ifs_data local_ifs, uint8
 	printf("Received message: %s\n", received_info.message);
 	
 	if (strncmp(received_info.message, "PONG:", 4) == 0) {
-		printf("The first 4 characters match!\n");
+		printf("The first 4 characters match! So we got a PONG!!\n");
 	} else {
 		printf("The first 4 characters do not match.\n");
+		send_msg(cache, &local_ifs, &MIP_address, received_info.destination_host, received_info.message, strlen(received_info.message));
 	}
-	
-	send_msg(cache, &local_ifs, &MIP_address, &received_info.destination_host, received_info.message, strlen(received_info.message));
 }
 
 
@@ -156,12 +155,12 @@ int main(int argc, char *argv[])
 	 */
 
 	uint8_t dest_MIP = 10;
-	char buffer[] = "Bufer Data";
+	char buffer[] = "ZZZZZufer Data";
 	if(strcmp(argv[3], "send") == 0)
 	{
 		printf("Sending Broadcast on all interfazes\n");
 		//send_arp_request(&local_ifs, &MIP_address, &dest_MIP);
-		send_msg(&cache,&local_ifs, &MIP_address, &dest_MIP, buffer, strlen(buffer));
+		send_msg(&cache,&local_ifs, &MIP_address, dest_MIP, buffer, strlen(buffer));
 	}
 	int accepted_sd = -1;
 

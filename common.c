@@ -13,6 +13,7 @@
 #include "cache.h"
 #include "common.h"
 #include "mip.h"
+#include "ping_utilities.h"
 /*
  * Print MAC address in hex format
  */
@@ -107,7 +108,9 @@ int handle_arp_packet(struct Cache *cache, struct ifs_data *ifs, uint8_t *my_mip
 	struct msghdr	msg = {0};
 	struct iovec	msgvec[3];
 	struct mip_header	header;
-	struct mip_sdu		sdu;
+	//struct mip_sdu		sdu;
+	uint8_t buf[255];
+
 	int rc;
 	
 	/* Frame header */
@@ -118,14 +121,14 @@ int handle_arp_packet(struct Cache *cache, struct ifs_data *ifs, uint8_t *my_mip
 	msgvec[1].iov_base	= &header;
 	msgvec[1].iov_len	= sizeof(struct mip_header);
 
-	msgvec[2].iov_base	= &sdu;
-	msgvec[2].iov_len	= sizeof(struct mip_sdu);
-
+	msgvec[2].iov_base	= &buf;
+	msgvec[2].iov_len	= 255;//sizeof(struct mip_sdu);
+	
 	msg.msg_name	=	&so_name;
 	msg.msg_namelen	=	sizeof(struct sockaddr_ll);
 	msg.msg_iovlen	=	3;
 	msg.msg_iov	=	msgvec;
-	
+		
 	printf("Receving message with MIP header\n");
 	/* Receive ARP message */
 	rc = recvmsg(ifs->rsock, &msg, 0);
@@ -134,22 +137,67 @@ int handle_arp_packet(struct Cache *cache, struct ifs_data *ifs, uint8_t *my_mip
 		perror("sendmsg");
 		return -1;
 	}
+	uint8_t valz;
+	memcpy(&valz, buf, header.sdu_len);
+
 	printf("***\n Received Message from link: ");
 	print_mac_addr(frame_hdr.src_addr, 6);
 	printf("***\n\n");
 	
 	printf("******************Checking received package***********************\n");
 	print_mip_header(&header);
-	print_mip_sdu(&sdu);
+	printf("Value: %u\n", *((unsigned int *)buf));
+	printf("Value: %u\n", valz);
 
+	printf("header.len = %d\n", header.sdu_len);
 	printf("Checking if the the Message is meant for me?\n");
 	if(header.sdu_type == MIP_ARP)
 	{
+		printf("Its an ARP Message\n");
+		if(header.dst_addr == *my_mip_addr){
+			printf("For Me :)\n");
+			if(valz == header.src_addr){
+				printf("Response to a broadcast\n");
+				int index;
+				for (int i = 0; i < ifs->ifn; i++) {
+					if (ifs->addr[i].sll_ifindex == (&so_name)->sll_ifindex){
+						index = (&so_name)->sll_ifindex; 
+					}
+				}
+				printf("Cache index %d\n", index);
+				addToCache(cache, header.src_addr, frame_hdr.src_addr, index);
+				print_cache(cache);
+			}
+		}
+
+		if(header.dst_addr == 0xFF){
+			printf("This is a broadcast message\n");
+			if(valz == *my_mip_addr){
+				printf("Broadcast was meant for me!\n");
+				
+				struct sockaddr_ll tmp;
+				int index;
+				for (int i = 0; i < ifs->ifn; i++) {
+					if (ifs->addr[i].sll_ifindex == (&so_name)->sll_ifindex){
+						index = (&so_name)->sll_ifindex;
+						memcpy(tmp.sll_addr, ifs->addr[i].sll_addr, 6);
+					}
+				}
+				printf("Cache index %d == %d\n", index, tmp.sll_ifindex);
+				addToCache(cache, header.src_addr, frame_hdr.src_addr, index);
+				print_cache(cache);
+				send_arp_response(ifs,&so_name, frame_hdr, &header,*my_mip_addr, header.sdu_len);
+			}else {
+				printf("Broadcast was not meant for me, ignoring...\n");
+			}
+		}
+
+		/*
 		if(header.dst_addr == *my_mip_addr)
 		{
 			printf("This message was meant for me\n");
 			//handle message;
-			if(sdu.type == MIP_TYPE_RESPONSE)
+			if(0)//sdu.type == MIP_TYPE_RESPONSE)
 			{
 				printf("IT is a response to a Broadcast from me!\nResponse is from : %d\n", sdu.mip_addr);
 				struct sockaddr_ll tmp;
@@ -188,25 +236,25 @@ int handle_arp_packet(struct Cache *cache, struct ifs_data *ifs, uint8_t *my_mip
 			{
 				printf("This boradcast was not meant for me :(\n");
 			}
-		}
-
-
-		}else if(header.sdu_type == MIP_PING)
+		}*/
+	}else if(header.sdu_type == MIP_PING)
+	{
+		printf("*** ITS A PING!*** \n");
+		printf("*** ITS A PING!***\n");
+		//need to forward it on UNIX to SERVER.
+//		printf("READING PING SDU: \n\t%d\n\t%s\n", inf.destination_host,inf.message);
+		char *mess ="PING_TEST";
+	        rc = write(ifs->unix_sock, mess, strlen(mess));
+		printf("Printing UNIX: %d\n", ifs->unix_sock);
+		if(rc <= 0)
 		{
-			printf("ITS A PING!\n");
-			//need to forward it on UNIX to SERVER.
-			char *mess = "PING_MSG";
-		        rc = write(ifs->unix_sock, mess, strlen(mess));
-			printf("Printing UNIX: %d\n", ifs->unix_sock);
-			if(rc <= 0)
-			{
-				close(ifs->unix_sock);
-				printf("<%d> has lef thte chat...\n", ifs->unix_sock);
-				return -1;
-			}
-			}else {
-				printf("Undefined message.\n");
-			}
+			close(ifs->unix_sock);
+			printf("<%d> has lef thte chat...\n", ifs->unix_sock);
+			return -1;
+		}
+		}else {
+			printf("Undefined message.\n");
+		}
 	return 1;
 }
 
@@ -227,15 +275,14 @@ int handle_arp_packet(struct Cache *cache, struct ifs_data *ifs, uint8_t *my_mip
  *
  *
  */
-int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name, struct ether_frame frame, struct mip_header *m_header, struct mip_sdu *m_sdu, uint8_t *my_mip_addr)
+int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name, struct ether_frame frame, struct mip_header *m_header, uint8_t my_mip_addr, size_t len)
 {
 	struct msghdr *msg;
 	struct iovec msgvec[3];
 	struct mip_header response_header;
-	struct mip_sdu response_sdu;
-	
+	//struct mip_sdu response_sdu;
 	int rc;
-	
+	uint8_t *address = &my_mip_addr;
 	//Stolen code from Plenum
 	/* Swap MAC addresses of the ether_frame to send back (unicast) the ARP response */
 	memcpy(frame.dst_addr, frame.src_addr, 6);
@@ -250,8 +297,9 @@ int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name, struct 
 	frame.eth_proto[0] = frame.eth_proto[1] = 0xFF;
 	
 	//Building the MIP PDU
-	response_header = construct_mip_header(m_header->src_addr, *my_mip_addr, 12, 32, MIP_ARP);
-	response_sdu	= construct_mip_sdu(MIP_TYPE_RESPONSE, m_sdu->mip_addr);
+	response_header = construct_mip_header(m_header->src_addr, my_mip_addr, 12, len, MIP_ARP);
+	//response_sdu	= construct_mip_sdu(MIP_TYPE_RESPONSE, m_sdu->mip_addr);
+//	uint8_t sdu_mip = m_sdu->mip_addr;
 
 	/* Point to frame header */
 	msgvec[0].iov_base	= &frame;
@@ -260,12 +308,13 @@ int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name, struct 
 	msgvec[1].iov_base	= &response_header;
 	msgvec[1].iov_len	= sizeof(struct mip_header);
 
-	msgvec[2].iov_base	= &response_sdu;
-	msgvec[2].iov_len	= sizeof(struct mip_sdu);
+	msgvec[2].iov_base	= address;// &response_sdu;
+	msgvec[2].iov_len	= sizeof(address); //sizeof(struct mip_sdu);
 	
 	printf("\n[Printing ARP_RESPONSE]\n\n");
 	print_mip_header(&response_header);
-	print_mip_sdu(&response_sdu);
+	printf("SDU: [%d]\nSize: [%lu]\n", *address, len);
+	//print_mip_sdu(&response_sdu);
 
 	/* Allocate a zeroed-out message info struct */
 	msg = (struct msghdr *)calloc(1, sizeof(struct msghdr));
@@ -283,14 +332,6 @@ int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name, struct 
 		free(msg);
 		return -1;
 	}
-
-	/*
-	printf("Nice to meet you ");
-	print_mac_addr(frame.dst_addr, 6);
-
-	printf("I am ");
-	print_mac_addr(frame.src_addr, 6);
-	*/
 
 	/* Remember that we allocated this on the heap; free it */
 	free(msg);
@@ -314,22 +355,23 @@ int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name, struct 
  *
  * Uppon sucess we end up sending a MIP-Request message on all interfaces.
  */
-int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip)
+int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t dst_mip)
 {
 	struct ether_frame	frame_hdr;
 	struct msghdr	*msg;
 	struct iovec	msgvec[3];
 	int rc;
-	
+	uint8_t *address = &dst_mip;
+		
 	uint8_t dst_addr[] = ETH_BROADCAST;
 	memcpy(frame_hdr.dst_addr, dst_addr, 6);
 	frame_hdr.eth_proto[0] = frame_hdr.eth_proto[1] = 0xFF;// htons(ETH_P_MIP);
 
 	struct mip_header	header;
-	struct mip_sdu		sdu;
+	//struct mip_sdu		sdu;
 	
-	header = construct_mip_header(0xFF, *src_mip, 1, 32, MIP_ARP);
-	sdu = construct_mip_sdu(MIP_TYPE_REQUEST, *dst_mip);		
+	header = construct_mip_header(0xFF, *src_mip, 1, sizeof(uint8_t), MIP_ARP);
+	//sdu = construct_mip_sdu(MIP_TYPE_REQUEST, *dst_mip);		
 
 	/* frame header */
 	msgvec[0].iov_base	= &frame_hdr;
@@ -340,17 +382,18 @@ int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip)
 	msgvec[1].iov_len	= sizeof(struct mip_header);
 	
 	/* MIP SDU */
-	msgvec[2].iov_base	= &sdu;
-	msgvec[2].iov_len	= sizeof(struct mip_sdu);
+	msgvec[2].iov_base	= address;
+	msgvec[2].iov_len	= sizeof(address);
 
 	/*
 	 * We loop over all of the interfaces and send a message on each interface.
 	 */
 	int i;
 
-	printf("---\tSending Broadcast:ARP-REQUEST to find %u\n", *dst_mip);	
+	printf("---\tSending Broadcast:ARP-REQUEST to find %u\n", dst_mip);	
 	print_mip_header(&header);
-	print_mip_sdu(&sdu);
+	printf("SDU: [%d] SIZE: [%lu]", dst_mip, sizeof(dst_mip));
+	//print_mip_sdu(&sdu);
 	printf("-----------------------\n");
 
 	for(i = 0; i < ifs->ifn; i++)
@@ -457,18 +500,18 @@ int send_ping_message(struct CacheEntry *cache_entry, struct ifs_data *ifs, uint
 // Define the structure for a cache entry
 }
 
-int send_msg(struct Cache *cache, struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip, char *buf, size_t buf_len)
+int send_msg(struct Cache *cache, struct ifs_data *ifs, uint8_t *src_mip, uint8_t dst_mip, char *buf, size_t buf_len)
 {
 	int rc;
-	struct CacheEntry *cache_entry = isInCache(cache, *dst_mip);
+	struct CacheEntry *cache_entry = isInCache(cache, dst_mip);
 	int in_cache = cache_entry != NULL;
-	printf("ParamCheck: [%s] [IN_CACHE: %d]\n", dst_mip, in_cache);
+	printf("ParamCheck: [%d] [IN_CACHE: %d]\n", dst_mip, in_cache);
 	
 	if(in_cache)
 	{
 		//send over known interface
 		printf("The mippo is in the cacho\n");
-		send_ping_message(cache_entry, ifs, src_mip, dst_mip, buf, buf_len);
+		send_ping_message(cache_entry, ifs, src_mip, &dst_mip, buf, buf_len);
 		
 	}else{
 		//we need to broadcast a message ...... 
