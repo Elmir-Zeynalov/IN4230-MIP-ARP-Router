@@ -13,7 +13,7 @@
 #include <sys/un.h>		/* definitions for UNIX domain sockets */
 
 #include "ping_client.h"
-
+#include <sys/time.h>
 
 struct information {
     uint8_t destination_host;
@@ -26,7 +26,9 @@ void client(char *socket_lower, uint8_t *destination_host, char *message, size_t
 		struct sockaddr_un addr;
 		int	   sd, rc;
 		char   buf[256];
-		
+
+		struct timeval start, end;
+
 		// ping_client [-h] <socket_lower> <destination_host> <message>:
 		
 		sd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
@@ -83,7 +85,8 @@ void client(char *socket_lower, uint8_t *destination_host, char *message, size_t
 		info.destination_host = *destination_host;
 		strncpy(info.message, ping_message, sizeof(info.message));
 		info.message[sizeof(info.message)-1] = '\0'; // Ensure null-termination
-	
+		
+		gettimeofday(&start, NULL);
 		rc = write(sd, &info, sizeof(struct information));
 		printf("Waiting for a response....\n");
 		do 
@@ -100,19 +103,19 @@ void client(char *socket_lower, uint8_t *destination_host, char *message, size_t
 						printf("Timeout\n");
 						break;
 				}
-				printf("NOT A TIMEOUT OMFG\n");
 				memset(buf,0, sizeof(buf));
 				if(events[0].events & EPOLLIN)
 				{
 						int read_rc = read(sd,buf,sizeof(buf));
+						gettimeofday(&end, NULL);
+						double time_taken = end.tv_sec + end.tv_usec / 1e6 -start.tv_sec - start.tv_usec / 1e6; // in seconds
 						if(read_rc <= 0)
 						{
 								close(sd);
 								printf("<%d< left the chat...\n", sd);
 								break;
 						}
-						printf("<%d>: %s\n", sd, buf);
-						printf("Brace, we are breaking!\n");
+						printf("%s\nTime taken for execution [%f] seconds.\n", buf, time_taken);
 						break;
 				}	
 				/*
