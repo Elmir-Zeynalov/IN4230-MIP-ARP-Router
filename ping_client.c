@@ -1,5 +1,4 @@
 /*
- * File: chat.c
  */
 
 #include <stdint.h>
@@ -20,13 +19,19 @@ struct information {
     char message[256];
 };
 
-
+/*
+ * Method that takes input from user and sends it to its daemon.
+ * socket_lower: the path for the file descriptor
+ * destination_host: destination we want to send the message to
+ * message: message we want to send 
+ * buf_len: the length of the message we are sending
+ */
 void client(char *socket_lower, uint8_t *destination_host, char *message, size_t buf_len)
 {
 		struct sockaddr_un addr;
 		int	   sd, rc;
-		char   buf[256];
-
+		char   buf[255];
+		if(buf_len) { } 
 		struct timeval start, end;
 
 		// ping_client [-h] <socket_lower> <destination_host> <message>:
@@ -48,9 +53,6 @@ void client(char *socket_lower, uint8_t *destination_host, char *message, size_t
 				exit(EXIT_FAILURE);
 		}
 
-		printf("debuf:\n");
-		printf("PING:%s\n",message);
-		
 		int epoll_fd = epoll_create1(0);
 		if(epoll_fd == -1)
 		{
@@ -88,7 +90,7 @@ void client(char *socket_lower, uint8_t *destination_host, char *message, size_t
 		
 		gettimeofday(&start, NULL);
 		rc = write(sd, &info, sizeof(struct information));
-		printf("Waiting for a response....\n");
+		printf("Waiting for a response....\n\n");
 		do 
 		{
 				rc = epoll_wait(epoll_fd, events, 1, 1000);
@@ -97,7 +99,6 @@ void client(char *socket_lower, uint8_t *destination_host, char *message, size_t
 						perror("epoll_wait");
 						break;
 				}
-				printf("WE ount the wait!\n");
 				if(rc == 0) 
 				{
 						printf("Timeout\n");
@@ -106,39 +107,22 @@ void client(char *socket_lower, uint8_t *destination_host, char *message, size_t
 				memset(buf,0, sizeof(buf));
 				if(events[0].events & EPOLLIN)
 				{
-						int read_rc = read(sd,buf,sizeof(buf));
+						//int read_rc = read(sd,buf,sizeof(buf));
+						struct information response;
+
+						rc = read(sd, &response, sizeof(struct information));
+
 						gettimeofday(&end, NULL);
 						double time_taken = end.tv_sec + end.tv_usec / 1e6 -start.tv_sec - start.tv_usec / 1e6; // in seconds
-						if(read_rc <= 0)
+						if(rc <= 0)
 						{
 								close(sd);
 								printf("<%d< left the chat...\n", sd);
 								break;
 						}
-						printf("%s\nTime taken for execution [%f] seconds.\n", buf, time_taken);
+						printf("%s\nTime taken for execution [%f] seconds.\n", response.message, time_taken);
 						break;
 				}	
-				/*
-				memset(buf, 0, sizeof(buf));
-				// Wait for a response from the server
-				rc = read(sd, buf, sizeof(buf) - 1);
-				if (rc > 0) {
-						buf[rc] = '\0'; // Ensure null-termination
-						printf("Received: %s\n", buf);
-				} else if (rc == 0) {
-						printf("Server closed the connection.\n");
-						break;
-				} else {
-						perror("read");
-						close(sd);
-						exit(EXIT_FAILURE);
-				}*/
-				//rc = write(sd, buf, strlen(buf));
-				/*if (rc < 0) {
-						perror("write");
-						close(sd);
-						exit(EXIT_FAILURE);
-				}*/
 		} while (1);
 
 		close(sd);

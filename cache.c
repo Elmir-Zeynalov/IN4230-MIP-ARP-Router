@@ -40,3 +40,21 @@ void deleteFromCache(struct Cache *cache, uint8_t mip) {
         }
     }
 }
+
+void print_cache(struct Cache *cache)
+{
+        printf("[*Printing Cache*]\n");
+        int i;
+        if(cache->num_entries > 0) 
+        {
+            for(i = 0; i < cache->num_entries; i++)
+            {
+                printf("\tMIP: %d ||", cache->entries[i].mip_address);
+                printf("MAC: ");
+                print_mac_addr(cache->entries[i].mac_address, 6);
+                printf("|| Interface Index: %d\n", cache->entries[i].index); //interface.sll_addr, 6);
+            }
+        }else{
+            printf("*Cache Empty*\n");
+        }
+}

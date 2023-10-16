@@ -9,5 +9,6 @@
 int prepare_server_sock(char *path);
 int add_to_epoll_table(int efd, struct epoll_event *ev, int fd);
 
+int create_raw_socket(void);
 
 #endif

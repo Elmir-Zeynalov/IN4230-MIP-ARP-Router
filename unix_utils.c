@@ -6,7 +6,7 @@
 #include <sys/epoll.h>	/* epoll */
 #include <sys/socket.h>	/* sockets operations */
 #include <sys/un.h>		/* definitions for UNIX domain sockets */
-
+#include <arpa/inet.h>
 #include "unix_utils.h"
 /**
  * Prepare (create, bind, listen) the server listening socket
@@ -79,4 +79,17 @@ int add_to_epoll_table(int efd, struct epoll_event *ev, int fd)
 		}
 
 		return rc;
+}
+
+int create_raw_socket(void)
+{
+        int sd;
+
+        sd = socket(AF_PACKET, SOCK_RAW, htons(0x88B5));
+        if(sd == -1)
+        {
+                perror("socket");
+                exit(EXIT_FAILURE);
+        }
+        return sd;
 }

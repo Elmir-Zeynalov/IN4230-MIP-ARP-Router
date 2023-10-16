@@ -2,6 +2,7 @@
 #define _CACHE_H
 
 #include "imports.h"
+#include "utilities.h"
 #define CACHE_SIZE 4
 
 // Define the structure for a cache entry
@@ -21,5 +22,5 @@ void initializeCache(struct Cache* cache);
 void addToCache(struct Cache* cache, uint8_t mip, uint8_t mac[6], int index);
 struct CacheEntry* isInCache(struct Cache* cache, uint8_t mip);
 void deleteFromCache(struct Cache* cache, uint8_t mip);
-
+void print_cache(struct Cache *cache);
 #endif

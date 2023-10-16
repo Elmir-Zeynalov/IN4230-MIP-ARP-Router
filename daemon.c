@@ -13,54 +13,8 @@
 
 #include "common.h"
 #include "unix_utils.h"
-
-void usage(char *arg)
-{
-	printf("Usage: %s [-h] [-d] <socket_upper> <MIP_address>\n"
-		"Options:\n"
-		"\t-h: prints help and exits program\n"
-		"\t-d: enables debugging mode\nRequired Arguments:\n"
-		"\tsocket_upper: pathname of the UNIX socket used to interface with upper layers\n"
-		"\tMIP address: the MIP address to assign to this host\n", arg);
-}
-
-struct information {
-    uint8_t destination_host;
-    char message[256];
-};
-
-void handle_client(struct Cache *cache, struct Queue *queue, int fd, struct ifs_data local_ifs, uint8_t MIP_address)
-{
-	char buf[256];
-	int rc;
-	
-	struct information received_info;
-
-
-	memset(buf,0,sizeof(buf));
-	//rc = read(fd,buf,sizeof(buf));
-	rc = read(fd, &received_info, sizeof(struct information));
-	if(rc <= 0)
-	{
-		close(fd);
-		printf("<%d> has lef thte chat...\n", fd);
-		return;
-	}
-	printf("Received destination host: [%d]\n", received_info.destination_host);
-	printf("Received message: [%s]\n", received_info.message);
-	
-	if (strncmp(received_info.message, "PONG:", 4) == 0) {
-		printf("The first 4 characters match! So we got a PONG!!\n");
-		printf("RELAYYYYY\n");
-		printf("PongMsg: [%s]\nInResponseToHost: [%d]\n", received_info.message, received_info.destination_host);
-		printf("Trying to relay the PONG response.\n");
-		send_msg(cache, queue, &local_ifs, &MIP_address, received_info.destination_host, received_info.message, 255); 	
-	} else {
-		printf("The first 4 characters do not match.\n");
-		send_msg(cache, queue, &local_ifs, &MIP_address, received_info.destination_host, received_info.message, 255);
-	}
-}
-
+#include "ping_utilities.h"
+#include "debug.h"
 
 int main(int argc, char *argv[])
 {
@@ -95,8 +49,8 @@ int main(int argc, char *argv[])
 				exit(EXIT_FAILURE);
 		}
 	}
-
-	printf("argc: %d\n", argc);
+	
+	debug_flag = dflag; 
 	if(hflag)
 	{
 		usage(argv[0]);
@@ -119,18 +73,28 @@ int main(int argc, char *argv[])
 	
 	socket_upper = argv[dflag ? 2 : 1];
 	MIP_address = atoi(argv[dflag ? 3 : 2]);
-
-	printf("Socket Upper: %s\n", socket_upper);
-	printf("MIP Address: %d\n", MIP_address);
 	
+	if(dflag) 
+	{
+		printf("[<info>] Socket Upper: %s [<info>]\n", socket_upper);
+		printf("[<info>] MIP Address: %d [<info>]\n", MIP_address);
+	}
+
 	raw_sock = create_raw_socket();
 
-	printf("Printing all interfaces\n");
 	init_ifs(&local_ifs, raw_sock);
-	for(int i = 0; i < local_ifs.ifn; i++) {
-		print_mac_addr(local_ifs.addr[i].sll_addr,6);
+	if(dflag)
+	{
+
+		printf("[<info>] Printing all interfaces [<info>]\n");
+		for(int i = 0; i < local_ifs.ifn; i++) {
+			printf("[*] ");
+			print_mac_addr(local_ifs.addr[i].sll_addr,6);
+			printf("[*]\n");
+		}
+		printf("\n");
 	}
-	
+
 	/* Set up epoll */
 	epollfd = epoll_create1(0);
 	if (epollfd == -1) {
@@ -138,34 +102,23 @@ int main(int argc, char *argv[])
 		close(raw_sock);
 		exit(EXIT_FAILURE);
 	}
-	printf("epollCreated\n");
-	/* Add RAW socket to epoll */
-	ev.events = EPOLLIN|EPOLLHUP;
+
+
+	/* Add RAW socket to epoll table */
+	ev.events = /*EPOLLIN|*/EPOLLHUP;
 	ev.data.fd = raw_sock;
-	if (epoll_ctl(epollfd, EPOLL_CTL_ADD, raw_sock, &ev) == -1) {
-		perror("epoll_ctl: raw_sock");
-		close(raw_sock);
-		exit(EXIT_FAILURE);
-	}
-	
-	unix_sock = prepare_server_sock(socket_upper);
-	add_to_epoll_table(epollfd, &ev, unix_sock);
-
-	//local_ifs.unix_sock = unix_sock;	
-	printf("UNIX FROM MAIN:%d\n", unix_sock);	
-	/*
-	 * TODO: Remove this 
-	 * This is only used for testing purposes....
-	 *
-	 */
-
-	uint8_t dest_MIP = 10;
-	char buffer[] = "ZZZZZufer Data";
-	if(strcmp(argv[3], "send") == 0)
+	rc = add_to_epoll_table(epollfd, &ev, raw_sock);
+	if(rc)
 	{
-		printf("Sending Broadcast on all interfazes\n");
-		//send_arp_request(&local_ifs, &MIP_address, &dest_MIP);
-		//send_msg(&cache,&local_ifs, &MIP_address, dest_MIP, buffer, strlen(buffer));
+
+	}
+	/* Add Unix socket to epoll table */
+	unix_sock = prepare_server_sock(socket_upper);
+	
+	rc = add_to_epoll_table(epollfd, &ev, unix_sock);
+	if(rc)
+	{
+
 	}
 	int accepted_sd = -1;
 
@@ -176,35 +129,35 @@ int main(int argc, char *argv[])
 			perror("epoll_wait");
 			break;
 		} else if (events->data.fd == raw_sock) {
-			printf("\n<info> The neighbor is initiating a handshake\n");
+			/* Someone triggered event on raw socket */
+			if(debug_flag) printf("[<info>] [RAW-SOCKET] The neighbor is initiating a MIP-ARP handshake [<info>]\n");
+
 			rc = handle_arp_packet(&cache, &queue,  &local_ifs, &MIP_address);
 			if (rc < 1) {
 				perror("recv");
 				break;
 			}
 		} else if(events->data.fd == unix_sock){
-			//A UNIX connection
-			//PING CLIENT OR PING SERVER IS trying to connect on main listening socket.
-				
+			/* Someone knocking on the UNIX socket */
 			accept_sd = accept(unix_sock, NULL, NULL);
 			if (accept_sd == -1) {
 				perror("accept");
 				continue;
 			}
-
-			printf("<%d> joined the chat...\n", accept_sd);
-
+			if(debug_flag) printf("[<info>] [UNIX-SOCKET] Fd: %d: Has connected to the Daemon [<info>]\n", accept_sd);
+			
 			/* Add the new socket to epoll table */
 			rc = add_to_epoll_table(epollfd, &ev, accept_sd);
 			if (rc == -1) {
 				close(unix_sock);
 				exit(EXIT_FAILURE);
 			}
-			accepted_sd = accept_sd;
+			accepted_sd = accept_sd; // we take care of the file descriptor of the connected client/server for later use
 			local_ifs.unix_sock = accepted_sd;
 		}else{
-			//could be either PING or PONG
-			printf("Events.data.fd = %d\nAccepted_sd = %d\n", events->data.fd, accepted_sd);
+			/* Someone has triggered an event on an existing connection */
+			/* Who exactly is sending messages is stored in local_ifs.unix_sock */
+			if(debug_flag) printf("[<info>] [UNIX-SOCKET] Existing client has sent a message [<info>]\n");
 			handle_client(&cache, &queue, events->data.fd, local_ifs, MIP_address);
 		}
 	}

@@ -17,6 +17,15 @@ struct information {
                 uint8_t destination_host;
                 char message[255];
 };
+
+void usage(char *arg)
+{
+        printf("Usage: %s [-h] <socket_lower>\n"
+                "Options:\n"
+                "\t-h: prints help and exits program\n"
+                "\tsocket_lower: pathname of the UNIX socket used to interface with upper layers\n", arg);
+}
+
 void server(char *socket_lower)
 {
                 struct sockaddr_un addr;
@@ -62,7 +71,7 @@ void server(char *socket_lower)
                 }
                 struct epoll_event events[1];
 
-                printf("[PING SERVER] Waiting for a response....\n");
+                printf("[PONG SERVER] Waiting for a request....\n");
                 do
                 {
                                 rc = epoll_wait(epoll_fd, events, 1, -1);
@@ -89,14 +98,16 @@ void server(char *socket_lower)
                                                                 break;
                                                 }
 
-                                                printf("PONG_SERVER_RECEIVED MESSAGE: [%s]\n", buf);
-                                                //char pong_message[256]; // Assuming a maximum message length of 256, adjust as needed
-                                                //sprintf(pong_message, "PONG:%s", buf);
                                                 info.message[1] = 'O';
+                                                printf("%s\n", info.message);
 
-                                                printf("Message Relaying to daemon [%s]\n", info.message);
-
-                                                int write_rc = write(sd, &info, sizeof(struct information));
+                                                rc = write(sd, &info, sizeof(struct information));
+                                                if(rc <= 0)
+                                                {
+                                                                close(sd);
+                                                                printf("issue writing....");
+                                                                break;
+                                                }
                                 }
                 } while (1);
 
@@ -105,7 +116,34 @@ void server(char *socket_lower)
 
 int main (int argc, char *argv[])
 {
-                
+
+        int hflag = 0;
+        int opt;
+        while((opt = getopt(argc, argv, "h")) != -1)
+        {
+                switch (opt) {
+                        case 'h':
+                                hflag = 1;
+                                break;
+                        default:
+                                usage(argv[0]);
+                                exit(EXIT_FAILURE);
+                }
+        }
+
+        if(hflag)
+        {
+                usage(argv[0]);
+                exit(EXIT_SUCCESS);
+        }
+
+        if(argc < 2)
+        {
+                usage(argv[0]);
+                exit(EXIT_SUCCESS);
+        }
+
+
         char *socket_lower = argv[1];
         printf("Socket Lower: %s\n", socket_lower);
         server(socket_lower);
