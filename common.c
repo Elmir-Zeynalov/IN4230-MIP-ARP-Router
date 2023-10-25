@@ -39,6 +39,9 @@ void handle_client(struct Cache *cache, struct Queue *queue, int fd, struct ifs_
         char buf[256];
         int rc;
 
+	uint8_t clinet_type;
+	rc = read(fd, &clinet_type, sizeof(uint8_t));
+	printf("[%d]\n", clinet_type);
         struct information received_info;
 
         memset(buf,0,sizeof(buf));
