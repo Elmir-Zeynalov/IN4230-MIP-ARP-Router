@@ -1,13 +1,13 @@
 #include <stdint.h>
 #include <stdio.h>              /* standard input/output library functions */
 #include <stdlib.h>             /* standard library definitions (macros) */
+#include <time.h>
 #include <unistd.h>             /* standard symbolic constants and types */
 #include <string.h>             /* string operations (strncpy, memset..) */
-
 #include <sys/epoll.h>  /* epoll */
 #include <sys/socket.h> /* sockets operations */
 #include <sys/un.h>             /* definitions for UNIX domain sockets */
-
+#include "routing_utils.h"
 
 void usage(char *arg)
 {
@@ -19,7 +19,7 @@ void usage(char *arg)
 
 int identify_myself(int sd)
 {
-                uint8_t my_id = 0x02; //SDU_TYPE = PING
+                uint8_t my_id = 0x04; //SDU_TYPE = ROUTING 
                 int rc;
 
                 rc = write(sd, &my_id, sizeof(uint8_t));
@@ -29,17 +29,43 @@ int identify_myself(int sd)
                 }
                 return 1;
 }
+double diff_time_ms(struct timespec start, struct timespec end)
+{
+	double s, ms, ns;
 
-void server(char *socket_lower)
+	s  = (double)end.tv_sec  - (double)start.tv_sec;
+	ns = (double)end.tv_nsec - (double)start.tv_nsec;
+
+	if (ns < 0) { // clock underflow
+		--s;
+		ns += 1000000000;
+	}
+
+	ms = ((s) * 1000 + ns/1000000.0);
+
+	return ms;
+}
+
+int routing_daemon_init(char *socket_lower)
 {
                 struct sockaddr_un addr;
-                int        sd, rc;
                 char   buf[255];
+                int        sd, rc;
+                
+                struct epoll_event ev, events[10];
+                int epollfd;
+
+                enum state s_state;
+                struct timespec lastHelloSent;
+                struct timespec lastHelloRecv;
+                struct timespec timenow;
+                uint8_t hello[6] = "hello";
+
 
                 sd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
                 if (sd < 0) {
                                 perror("socket");
-                                exit(EXIT_FAILURE);
+                                return -1;
                 }
 
                 memset(&addr, 0, sizeof(addr));
@@ -53,73 +79,94 @@ void server(char *socket_lower)
                                 exit(EXIT_FAILURE);
                 }
 
-                printf("*PING SERVER*\n");
+                printf("*Running the Routing Daemon*\n");
 
                 int epoll_fd = epoll_create1(0);
                 if(epoll_fd == -1)
                 {
                                 perror("epoll_create1");
                                 close(sd);
-                                return;
+                                return -1;
                 }
 
-                struct epoll_event event;
-                event.events = EPOLLIN;
-                event.data.fd = sd;
-                if(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sd, &event) == -1)
+                ev.events = EPOLLIN;
+                ev.data.fd = sd;
+                if(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sd, &ev) == -1)
                 {
                                 perror("epoll_ctl");
                                 close(epoll_fd);
                                 close(sd);
-                                return;
+                                return -1; 
                 }
-                struct epoll_event events[1];
 
                 if(identify_myself(sd) < 0)
                 {
                                 perror("Couldnt identify myself to daemon...");
                                 close(sd);
-                                return;
+                                return -1;
+                }
+                
+                printf("waiting for Hello...\n");
+                rc = epoll_wait(epoll_fd, events, 10, -1);
+                if(rc == -1){
+                                perror("epoll_wait");
+                                return -1;
+                }else{
+                                printf("Received the first hello ... entering INIT state\n");
+                                s_state = INIT;
+                                clock_gettime(CLOCK_REALTIME, &lastHelloRecv);
                 }
 
-                printf("[PONG SERVER] Waiting for a request....\n");
-                do
-                {
-                                rc = epoll_wait(epoll_fd, events, 1, -1);
-                                if(rc < 0)
-                                {
-                                                perror("epoll_wait");
+
+                while (1) {
+                                switch (s_state) {
+                                case INIT:
+                                                /* Send hello to the neighbor. */
+                                                /*send_raw_packet(raw_sock,
+                                                                &so_name,
+                                                                hello,
+                                                                sizeof(hello));
+			                        */
+                                                clock_gettime(CLOCK_REALTIME, &lastHelloSent);
+                                                s_state = WAIT;
+                                                break;
+                                case WAIT:
+                                                rc = epoll_wait(epollfd, events, 10, 1000);
+                                                if (rc == -1) {
+                                                                perror("epoll_wait");
+                                                                exit(EXIT_FAILURE);
+                                                } else if (rc == 0) {
+                                                                clock_gettime(CLOCK_REALTIME, &timenow);
+                                                                if (diff_time_ms(lastHelloRecv, timenow) > HELLO_TIMEOUT) {
+                                                                /* Timeout expired and didn't get any Hello */ 
+                                                                                s_state = EXIT;
+                                                                                continue;
+                                                                } else {
+                                                                                if (diff_time_ms(lastHelloSent, timenow) >= HELLO_INTERVAL) {
+                                                                                /* Time to send HELLO */
+                                                                                                s_state = INIT;
+                                                                                                continue;
+                                                                                }
+                                                                }
+                                                } else {
+                                                                /* epoll() was triggered -> read the HELLO */
+                                                                //if (recv_raw_packet(raw_sock, buf, BUF_SIZE) <= 0)
+                                                                s_state = EXIT;
+                                                                // else {
+                                                                clock_gettime(CLOCK_REALTIME, &lastHelloRecv);
+                                                                //  }
+                                                }
+                                                break;
+                                case EXIT:
+                                                close(sd);
+                                                exit(EXIT_SUCCESS);
+                                                break;
+                                default:
+                                                // undefined state
+                                                exit(EXIT_FAILURE);
                                                 break;
                                 }
-                                if(rc == 0)
-                                {
-                                                printf("Timeout\n");
-                                                break;
-                                }
-                                memset(buf,0, sizeof(buf));
-                                if(events[0].events & EPOLLIN)
-                                {
-
-                                                int read_rc = read(sd,&info,sizeof(struct information));
-                                                if(read_rc <= 0)
-                                                {
-                                                                close(sd);
-                                                                printf("<%d< left the chat...\n", sd);
-                                                                break;
-                                                }
-
-                                                info.message[1] = 'O';
-                                                printf("%s\n", info.message);
-
-                                                rc = write(sd, &info, sizeof(struct information));
-                                                if(rc <= 0)
-                                                {
-                                                                close(sd);
-                                                                printf("issue writing....");
-                                                                break;
-                                                }
-                                }
-                } while (1);
+                }
 
                 close(sd);
 }
@@ -156,6 +203,6 @@ int main (int argc, char *argv[])
 
         char *socket_lower = argv[1];
         printf("Socket Lower: %s\n", socket_lower);
-        server(socket_lower);
+        routing_daemon_init(socket_lower);
         return 0;
 }
