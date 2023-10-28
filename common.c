@@ -25,9 +25,10 @@ int determine_unix_connection(int fd, struct ifs_data local_ifs, int *unix_appli
 	int rc;
 	uint8_t application_type;
 	rc = read(fd, &application_type, sizeof(uint8_t));
-	if(rc < 0)
+	if(rc <= 0)
 	{
 		perror("sock read()");
+		close(fd);
 		return -1;
 	}
 

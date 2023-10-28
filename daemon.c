@@ -155,14 +155,15 @@ int main(int argc, char *argv[])
 				close(unix_sock);
 				exit(EXIT_FAILURE);
 			}
-			accepted_sd = accept_sd; // we take care of the file descriptor of the connected client/server for later use
-			local_ifs.unix_sock = accepted_sd;
+			//accepted_sd = accept_sd; // we take care of the file descriptor of the connected client/server for later use
+			//local_ifs.unix_sock = accepted_sd;
 		}else{
 
 			/* Someone has triggered an event on an existing connection */
 			/* Who exactly is sending messages is stored in local_ifs.unix_sock */
 			if(debug_flag) printf("[<info>] [UNIX-SOCKET] Existing client has sent a message [<info>]\n");
-				
+			
+			printf("events data fd = %d | localifs_routing_sock = %d || localifs_unix_sock = %d \n", events->data.fd, local_ifs.routin_sock, local_ifs.unix_sock); 
 			if(events->data.fd == local_ifs.routin_sock || events->data.fd == local_ifs.unix_sock)
 			{
 				handle_client(&cache, &queue, events->data.fd, local_ifs, MIP_address);
