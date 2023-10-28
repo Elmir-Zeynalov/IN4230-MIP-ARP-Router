@@ -18,6 +18,33 @@
 #include "queue.h"
 #include "debug.h"
 
+
+
+int determine_unix_connection(int fd, struct ifs_data local_ifs, int *unix_application_connected, int *routing_daemon_connected)
+{
+	int rc;
+	uint8_t application_type;
+	rc = read(fd, &application_type, sizeof(uint8_t));
+	if(rc < 0)
+	{
+		perror("sock read()");
+		return -1;
+	}
+
+	printf("Upper Layer Application Type: [%s]\n", application_type == 0x04 ? "Routing-Daemon" : "PING/CLIENT");
+	
+	if(application_type == 0x04)
+	{
+		*routing_daemon_connected = 1;
+		local_ifs.routin_sock = fd;
+	}
+	else{
+		*unix_application_connected = 1;
+		local_ifs.unix_sock = fd;
+	}
+	return rc;
+}
+
 /*
  * Method to handle incomming messages on the UNIX socket initiated either by the client or server applications.
  * The procedure here is simple. We just read the incoming message and then pass it on to our send_msg() funciton,
@@ -38,10 +65,6 @@ void handle_client(struct Cache *cache, struct Queue *queue, int fd, struct ifs_
 {
         char buf[256];
         int rc;
-
-	uint8_t clinet_type;
-	rc = read(fd, &clinet_type, sizeof(uint8_t));
-	printf("Client Type: [%d]\n", clinet_type);
         struct information received_info;
 
         memset(buf,0,sizeof(buf));
@@ -250,6 +273,8 @@ void init_ifs(struct ifs_data *ifs, int rsock)
 
 	/* We use one RAW socket per node */
 	ifs->rsock = rsock;
+	ifs->routin_sock = -1;
+	ifs->unix_sock = -1;
 }
 
 /* Helper function that loops through the given interfaces in ifs and tries to find a matching index. 

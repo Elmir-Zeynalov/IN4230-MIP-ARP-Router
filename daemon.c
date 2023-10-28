@@ -35,6 +35,9 @@ int main(int argc, char *argv[])
 	struct epoll_event ev, events[MAX_EVENTS];
 	int epollfd;
 
+	int application_connected = 0;
+	int routing_daemon_connected = 0;
+
 	while((opt = getopt(argc, argv, "dh")) != -1)
 	{
 		switch (opt) {
@@ -155,10 +158,17 @@ int main(int argc, char *argv[])
 			accepted_sd = accept_sd; // we take care of the file descriptor of the connected client/server for later use
 			local_ifs.unix_sock = accepted_sd;
 		}else{
+
 			/* Someone has triggered an event on an existing connection */
 			/* Who exactly is sending messages is stored in local_ifs.unix_sock */
 			if(debug_flag) printf("[<info>] [UNIX-SOCKET] Existing client has sent a message [<info>]\n");
-			handle_client(&cache, &queue, events->data.fd, local_ifs, MIP_address);
+				
+			if(events->data.fd == local_ifs.routin_sock || events->data.fd == local_ifs.unix_sock)
+			{
+				handle_client(&cache, &queue, events->data.fd, local_ifs, MIP_address);
+			}else {
+				determine_unix_connection(events->data.fd, local_ifs, &application_connected, &routing_daemon_connected);
+			}
 		}
 	}
 
