@@ -36,6 +36,6 @@ int send_ping_message(struct CacheEntry *cache_entry, struct ifs_data *ifs, uint
 
 int send_msg(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uint8_t *src_mip, uint8_t dst_mip, char *buf, size_t buf_len);
 
-void handle_client(struct Cache *cache, struct Queue *queue, int fd, struct ifs_data local_ifs, uint8_t MIP_address);
-int determine_unix_connection(int fd, struct ifs_data local_ifs, int *application_connected, int *routing_daemon_connected);
+void handle_client(struct Cache *cache, struct Queue *queue, int fd, struct ifs_data *local_ifs, uint8_t MIP_address);
+int determine_unix_connection(int fd, struct ifs_data *local_ifs);
 #endif // !DEBUG

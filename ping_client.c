@@ -97,7 +97,7 @@ void client(char *socket_lower, uint8_t *destination_host, char *message, size_t
 				perror("idenity check");
 				return;
 		}
-		sleep(1);
+		//sleep(1);
 
 
 		strcpy(ping_message, "PING:");

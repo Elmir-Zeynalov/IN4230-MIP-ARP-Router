@@ -13,8 +13,9 @@ ping_server: server.c
 	$(CC) $(CFLAGS) server.c -o ping_server
 
 router: routing_daemon.c
-	$(CC) $(CLAGS) routing_daemon.c -o router
+	$(CC) $(CFLAGS) routing_daemon.c -o router
 clean:
 	rm -f mipd
 	rm -f ping_client
 	rm -f ping_server
+	rm -f router

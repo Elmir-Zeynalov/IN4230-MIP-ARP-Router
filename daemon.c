@@ -11,7 +11,9 @@
 #include <arpa/inet.h>			/* htons */
 #include <ifaddrs.h>			/* getifaddrs */
 
+#include "cache.h"
 #include "common.h"
+#include "queue.h"
 #include "unix_utils.h"
 #include "ping_utilities.h"
 #include "debug.h"
@@ -26,7 +28,9 @@ int main(int argc, char *argv[])
 	
 	struct Cache cache;
 	struct Queue queue;
-
+	
+	initializeCache(&cache);
+	initializeQueue(&queue);
 	struct ifs_data local_ifs;
 	int raw_sock, rc;
 	int unix_sock;
@@ -34,9 +38,6 @@ int main(int argc, char *argv[])
 
 	struct epoll_event ev, events[MAX_EVENTS];
 	int epollfd;
-
-	int application_connected = 0;
-	int routing_daemon_connected = 0;
 
 	while((opt = getopt(argc, argv, "dh")) != -1)
 	{
@@ -123,8 +124,6 @@ int main(int argc, char *argv[])
 	{
 
 	}
-	int accepted_sd = -1;
-
 	/* epoll_wait forever for incoming packets */
 	while(1) {
 		rc = epoll_wait(epollfd, events, MAX_EVENTS, -1);
@@ -147,7 +146,7 @@ int main(int argc, char *argv[])
 				perror("accept");
 				continue;
 			}
-			if(debug_flag) printf("[<info>] [UNIX-SOCKET] Fd: %d: Has connected to the Daemon [<info>]\n", accept_sd);
+			if(1) printf("[<info>] [UNIX-SOCKET] Fd: %d: Has connected to the Daemon [<info>]\n", accept_sd);
 			
 			/* Add the new socket to epoll table */
 			rc = add_to_epoll_table(epollfd, &ev, accept_sd);
@@ -163,12 +162,14 @@ int main(int argc, char *argv[])
 			/* Who exactly is sending messages is stored in local_ifs.unix_sock */
 			if(debug_flag) printf("[<info>] [UNIX-SOCKET] Existing client has sent a message [<info>]\n");
 			
-			printf("events data fd = %d | localifs_routing_sock = %d || localifs_unix_sock = %d \n", events->data.fd, local_ifs.routin_sock, local_ifs.unix_sock); 
+			/* if the socket is one we already know then we just handle the message. 
+			* Otherwise we try identify if its the routing-daemon or the ping/pong client
+			*/
 			if(events->data.fd == local_ifs.routin_sock || events->data.fd == local_ifs.unix_sock)
 			{
-				handle_client(&cache, &queue, events->data.fd, local_ifs, MIP_address);
+				handle_client(&cache, &queue, events->data.fd, &local_ifs, MIP_address);
 			}else {
-				determine_unix_connection(events->data.fd, local_ifs, &application_connected, &routing_daemon_connected);
+				determine_unix_connection(events->data.fd, &local_ifs);
 			}
 		}
 	}
