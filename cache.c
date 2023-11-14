@@ -1,5 +1,4 @@
 #include "cache.h"
-
 // Initialize the cache
 void initializeCache(struct Cache *cache) {
     cache->num_entries = 0;
