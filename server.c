@@ -1,7 +1,6 @@
 /*
  * File: chat.c
  */
-
 #include <stdint.h>
 #include <stdio.h>              /* standard input/output library functions */
 #include <stdlib.h>             /* standard library definitions (macros) */
