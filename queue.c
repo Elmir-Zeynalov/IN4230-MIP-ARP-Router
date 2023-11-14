@@ -40,4 +40,3 @@ void deleteFromQueue(struct Queue* queue, uint8_t mip) {
         }
     }
 }
-
