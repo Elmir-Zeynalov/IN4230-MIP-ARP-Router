@@ -4,7 +4,6 @@
 #include <stdint.h>		/* uint8_t */
 #include <unistd.h>		/* size_t */
 #include <linux/if_packet.h>	/* struct sockaddr_ll */
-
 #include "mip.h"
 #include "ether.h"
 #include "cache.h" 
