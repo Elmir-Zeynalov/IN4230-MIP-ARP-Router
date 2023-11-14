@@ -26,6 +26,19 @@ void usage(char *arg)
                 "\tsocket_lower: pathname of the UNIX socket used to interface with upper layers\n", arg);
 }
 
+int identify_myself(int sd)
+{
+                uint8_t my_id = 0x02; //SDU_TYPE = PING
+                int rc;
+
+                rc = write(sd, &my_id, sizeof(uint8_t));
+                if(rc < 0) {
+                                perror("write() error"); 
+                                return -1;
+                }
+                return 1;
+}
+
 void server(char *socket_lower)
 {
                 struct sockaddr_un addr;
@@ -70,6 +83,13 @@ void server(char *socket_lower)
                                 return;
                 }
                 struct epoll_event events[1];
+                
+                if(identify_myself(sd) < 0) 
+                {
+                                perror("Couldnt identify myself to daemon...");
+                                close(sd);
+                                return;
+                }
 
                 printf("[PONG SERVER] Waiting for a request....\n");
                 do

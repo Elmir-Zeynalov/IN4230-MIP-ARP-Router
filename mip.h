@@ -8,6 +8,9 @@
 #define MIP_ARP 0x01
 #define MIP_PING 0x02
 
+#define MIP_ROUTING 0x04
+
+
 #define MIP_TYPE_REQUEST	0x00
 #define MIP_TYPE_RESPONSE	0x01
 

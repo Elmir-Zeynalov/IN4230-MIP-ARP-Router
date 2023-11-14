@@ -18,6 +18,32 @@
 #include "queue.h"
 #include "debug.h"
 
+
+
+int determine_unix_connection(int fd, struct ifs_data *local_ifs)
+{
+	int rc;
+	uint8_t application_type;
+	rc = read(fd, &application_type, sizeof(uint8_t));
+	if(rc <= 0)
+	{
+		perror("sock read()");
+		close(fd);
+		return -1;
+	}
+
+	printf("Upper Layer Application Type: [%s]\n", application_type == 0x04 ? "Routing-Daemon" : "PING/CLIENT");
+	
+	if(application_type == 0x04)
+	{
+		local_ifs->routin_sock = fd;
+	}
+	else{
+		local_ifs->unix_sock = fd;
+	}
+	return rc;
+}
+
 /*
  * Method to handle incomming messages on the UNIX socket initiated either by the client or server applications.
  * The procedure here is simple. We just read the incoming message and then pass it on to our send_msg() funciton,
@@ -34,30 +60,35 @@
  * the cache in order to determine if we need to broadcast (to find the MIP address) or if we can send the message
  * directly (because the host is already known to us).
  */
-void handle_client(struct Cache *cache, struct Queue *queue, int fd, struct ifs_data local_ifs, uint8_t MIP_address)
+void handle_client(struct Cache *cache, struct Queue *queue, int fd, struct ifs_data *local_ifs, uint8_t MIP_address)
 {
         char buf[256];
         int rc;
-
         struct information received_info;
 
         memset(buf,0,sizeof(buf));
-        rc = read(fd, &received_info, sizeof(struct information));
-        if(rc <= 0)
-        {
-                close(fd);
-                printf("<%d> has lef the chat...\n", fd);
-                return;
-        }
-
-	if(debug_flag)
+        //rc = read(fd, &received_info, sizeof(struct information));
+	if(fd == local_ifs->unix_sock)
 	{
-		printf("[<info>] Received a *%s* message [<info>]\n", (strncmp(received_info.message, "PONG:", 4) == 0) ? "PONG" : "PING"); 
-		printf("[<info>] Received destination host: [%d] [<info>]\n", received_info.destination_host);
-		printf("[<info>] Received message: [%s] [<info>]\n", received_info.message);
+		rc = read(local_ifs->unix_sock, &received_info, sizeof(struct information));
+		if(rc <= 0)
+		{
+			close(fd);
+			printf("<%d> has lef the chat...\n", fd);
+			local_ifs->unix_sock = -1;
+			return;
+		}
+		if(debug_flag)
+		{
+			printf("[<info>] Received a *%s* message [<info>]\n", (strncmp(received_info.message, "PONG:", 4) == 0) ? "PONG" : "PING"); 
+			printf("[<info>] Received destination host: [%d] [<info>]\n", received_info.destination_host);
+			printf("[<info>] Received message: [%s] [<info>]\n", received_info.message);
+		}
+		//pass the information after reading it from the socket
+		send_msg(cache, queue, local_ifs, &MIP_address, received_info.destination_host, received_info.message, 255);
+	}else{
+		printf("[<info>] Message from routing daemon [<info>]\n"); 
 	}
-	//pass the information after reading it from the socket
-        send_msg(cache, queue, &local_ifs, &MIP_address, received_info.destination_host, received_info.message, 255); 
 }
 
 
@@ -83,7 +114,7 @@ int send_msg(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uin
 	struct CacheEntry *cache_entry = isInCache(cache, dst_mip);
 	int in_cache = cache_entry != NULL;
 	if(debug_flag) printf("[<info>] Sending Message To [%d] [<info>]\n", dst_mip);
-	
+		
 	if(in_cache)
 	{
 		//send over known interface
@@ -92,12 +123,12 @@ int send_msg(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uin
 		send_ping_message(cache_entry, ifs, src_mip, &dst_mip, buf, buf_len, cache);
 	}else{
 		//we need to broadcast a message ...... 
-		if(debug_flag) printf("[<info>] Cache miss, need to send a broadcast to find: %d [<info>]\n", dst_mip);
+		if(1) printf("[<info>] Cache miss, need to send a broadcast to find: %d [<info>]\n", dst_mip);
 		rc = send_arp_request(ifs, src_mip, dst_mip, cache); 
 		
 		//Didnt find the MIP in cache so i ended up broadcasting
 		//But i need to store the message. 
-		if(debug_flag) printf("[<info>] Storing message [%s] in buffer until further notice.[<info>]\n", buf);
+		if(1) printf("[<info>] Storing message [%s] in buffer until further notice.[<info>]\n", buf);
 		addToQueue(queue, dst_mip, buf, buf_len);
 	}
 
@@ -247,6 +278,8 @@ void init_ifs(struct ifs_data *ifs, int rsock)
 
 	/* We use one RAW socket per node */
 	ifs->rsock = rsock;
+	ifs->routin_sock = -1;
+	ifs->unix_sock = -1;
 }
 
 /* Helper function that loops through the given interfaces in ifs and tries to find a matching index. 

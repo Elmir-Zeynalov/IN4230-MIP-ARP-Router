@@ -19,6 +19,19 @@ struct information {
     char message[256];
 };
 
+int identify_myself(int sd)
+{
+                uint8_t my_id = 0x02; //SDU_TYPE = ROUTING
+                int rc;
+
+                rc = write(sd, &my_id, sizeof(uint8_t));
+                if(rc < 0) {
+                                perror("write() error");
+                                return -1;
+                }
+                return 1;
+}
+
 /*
  * Method that takes input from user and sends it to its daemon.
  * socket_lower: the path for the file descriptor
@@ -79,6 +92,14 @@ void client(char *socket_lower, uint8_t *destination_host, char *message, size_t
 				fprintf(stderr, "Memory allocation failed.\n");
 				return ;
 		}
+		if(identify_myself(sd) <= 0)
+		{
+				perror("idenity check");
+				return;
+		}
+		//sleep(1);
+
+
 		strcpy(ping_message, "PING:");
 		strcat(ping_message, message);
 		printf("%s\n", ping_message);
