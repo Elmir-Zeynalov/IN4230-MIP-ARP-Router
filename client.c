@@ -6,7 +6,6 @@
 #include <unistd.h>
 #include "ping_client.h"
 
-
 // Usage method to provide user with feedback on how to run the program
 void usage(char *arg)
 {
