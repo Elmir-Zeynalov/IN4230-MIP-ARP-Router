@@ -636,5 +636,3 @@ int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t dst_mip, st
 	
 	return rc;
 }
-
-
