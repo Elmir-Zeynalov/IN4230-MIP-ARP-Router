@@ -10,7 +10,6 @@
 
 #define MIP_ROUTING 0x04
 
-
 #define MIP_TYPE_REQUEST	0x00
 #define MIP_TYPE_RESPONSE	0x01
 
