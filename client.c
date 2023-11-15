@@ -14,7 +14,9 @@ void usage(char *arg)
                 "\t-h: prints help and exits program\n"
                 "\tsocket_lower: pathname of the UNIX socket used to interface with upper layers\n"
                 "\t<destination_host>: the MIP address you are sending to\n"
-                "\t<message>: message you want to send\n" , arg);
+                "\t<message>: message you want to send\n" 
+                "\t<ttl>: time to live for the message (set to 0 if you want to use the default value of 8)\n", arg);
+                
 }
 
 
@@ -40,7 +42,7 @@ int main (int argc, char *argv[])
                 exit(EXIT_SUCCESS);
         }
         
-        if(argc < 4)
+        if(argc < 5)
         {
                 usage(argv[0]);
                 exit(EXIT_SUCCESS);
@@ -49,6 +51,9 @@ int main (int argc, char *argv[])
 	char *socket_lower = argv[1];
 	uint8_t destination_host = atoi(argv[2]);
 	char *message = argv[3];
-	client(socket_lower, &destination_host,message,strlen(message));
+        uint8_t ttl = atoi(argv[4]);
+        printf("Checking TTL: %d\n", ttl);
+
+	client(socket_lower, &destination_host,message,strlen(message), ttl);
 	return 0;
 }

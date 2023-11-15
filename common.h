@@ -14,6 +14,7 @@
 #define ETH_BROADCAST	{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 #define MAC_ADDR_LENGTH 6
 #define ETH_P_MIP	0x88B5
+#define DEFAULT_TTL	8
 
 struct ifs_data {
 	struct sockaddr_ll addr[MAX_IF];
@@ -30,10 +31,10 @@ int create_raw_socket(void);
 int handle_arp_packet(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uint8_t *my_src_mip);
 int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name,struct ether_frame frame, struct mip_header *m_header, uint8_t my_src_mip, size_t len);
 int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t dst_mip, struct Cache *cache);
-int send_ping_message(struct CacheEntry *cache_entry, struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip, char *buf, size_t buf_len, struct Cache *cache);
+int send_ping_message(struct CacheEntry *cache_entry, struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip, char *buf, size_t buf_len, struct Cache *cache, uint8_t ttl);
 
 
-int send_msg(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uint8_t *src_mip, uint8_t dst_mip, char *buf, size_t buf_len);
+int send_msg(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uint8_t *src_mip, uint8_t dst_mip, char *buf, size_t buf_len, uint8_t ttl);
 
 void handle_client(struct Cache *cache, struct Queue *queue, int fd, struct ifs_data *local_ifs, uint8_t MIP_address);
 int determine_unix_connection(int fd, struct ifs_data *local_ifs);

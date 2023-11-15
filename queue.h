@@ -10,6 +10,7 @@ struct QueueEntry {
     uint8_t mip_address;
     char message[255];
     size_t len;
+    uint8_t ttl;
 };
 
 struct Queue {
@@ -18,7 +19,7 @@ struct Queue {
 };
 
 void initializeQueue(struct Queue* queue);
-void addToQueue(struct Queue* queue, uint8_t mip, char *buf, size_t len);
+void addToQueue(struct Queue* queue, uint8_t mip, char *buf, size_t len, uint8_t ttl);
 struct QueueEntry* isInQueue(struct Queue* queue, uint8_t mip);
 void deleteFromQueue(struct Queue* queue, uint8_t mip);
 

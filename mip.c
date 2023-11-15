@@ -32,7 +32,7 @@ struct mip_header construct_mip_header(uint8_t dst_addr, uint8_t src_addr, uint8
 	header.ttl	= ttl;
 	header.sdu_len	= sdu_len;
 	header.sdu_type	= sdu_type;
-
+	printf("CONSTRUCT: %d\n", ttl);
 	return header;
 }
 

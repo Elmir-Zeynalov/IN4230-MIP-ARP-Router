@@ -16,6 +16,7 @@
 struct information {
     uint8_t destination_host;
     char message[256];
+    uint8_t ttl;
 };
 
 int identify_myself(int sd)
@@ -38,7 +39,7 @@ int identify_myself(int sd)
  * message: message we want to send 
  * buf_len: the length of the message we are sending
  */
-void client(char *socket_lower, uint8_t *destination_host, char *message, size_t buf_len)
+void client(char *socket_lower, uint8_t *destination_host, char *message, size_t buf_len, uint8_t ttl)
 {
 		struct sockaddr_un addr;
 		int	   sd, rc;
@@ -47,7 +48,7 @@ void client(char *socket_lower, uint8_t *destination_host, char *message, size_t
 		struct timeval start, end;
 
 		// ping_client [-h] <socket_lower> <destination_host> <message>:
-		
+		printf("THE TTL FROM CLIENTOO BABYYYY: %d\n", ttl);	
 		sd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 		if (sd < 0) {
 				perror("socket");
@@ -107,7 +108,8 @@ void client(char *socket_lower, uint8_t *destination_host, char *message, size_t
 		info.destination_host = *destination_host;
 		strncpy(info.message, ping_message, sizeof(info.message));
 		info.message[sizeof(info.message)-1] = '\0'; // Ensure null-termination
-		
+		info.ttl = ttl;
+
 		gettimeofday(&start, NULL);
 		rc = write(sd, &info, sizeof(struct information));
 		printf("Waiting for a response....\n\n");
