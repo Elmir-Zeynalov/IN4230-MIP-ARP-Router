@@ -28,7 +28,11 @@ void get_mac_from_interfaces(struct ifs_data *);
 void print_mac_addr(uint8_t *, size_t);
 void init_ifs(struct ifs_data *, int);
 int create_raw_socket(void);
-int handle_arp_packet(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uint8_t *my_src_mip);
+int forwarding_engine(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uint8_t *my_src_mip);
+
+
+int handle_arp_packet(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uint8_t *my_mip_addr, struct sockaddr_ll so_name, struct ether_frame frame_hdr, struct mip_header header, uint8_t *buf);
+//int handle_arp_packet(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uint8_t *my_src_mip);
 int send_arp_response(struct ifs_data *ifs, struct sockaddr_ll *so_name,struct ether_frame frame, struct mip_header *m_header, uint8_t my_src_mip, size_t len);
 int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t dst_mip, struct Cache *cache);
 int send_ping_message(struct CacheEntry *cache_entry, struct ifs_data *ifs, uint8_t *src_mip, uint8_t *dst_mip, char *buf, size_t buf_len, struct Cache *cache, uint8_t ttl);

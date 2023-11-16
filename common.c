@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <sys/socket.h>
 
+#include "ether.h"
 #include "utilities.h"
 #include "cache.h"
 #include "common.h"
@@ -309,20 +310,7 @@ int find_interface_from_cache(struct ifs_data *ifs, struct sockaddr_ll *so_name)
 }
 
 
-/*
- * Takes care of incoming messages
- * 
- * cache: MIP cache that stores MIP-addresses and MACs
- * queue: queue of messages that is used when we have to broadcast
- * ifs_data: structure that holds data on 
- * my_mip_addr: my mip address
- * 
- * This method does the heavy lifting when it comes to processing and analyzing incoming messages.
- * it performs checks based on the information in the message header and then takes actions based
- * on that. 
- *
- */
-int handle_arp_packet(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uint8_t *my_mip_addr)
+int forwarding_engine(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uint8_t *my_mip_addr)
 {
 	struct sockaddr_ll so_name;
 	struct ether_frame	frame_hdr;
@@ -358,6 +346,74 @@ int handle_arp_packet(struct Cache *cache, struct Queue *queue, struct ifs_data 
 		perror("sendmsg");
 		return -1;
 	}
+	
+	//IS the message for me? or is it broadcast
+	if(header.dst_addr == *my_mip_addr || header.dst_addr == 0xFF){
+		printf("[<info>] MIP Destination == My MIP || 0xFF [<info>]\n");
+		handle_arp_packet(cache, queue, ifs , my_mip_addr, so_name, frame_hdr,  header, buf);
+	}else{
+		printf("What am i doing here...\n");
+	}
+
+	//TTL check 
+	if(--header.ttl > 0){
+
+	}
+	
+	return 1;
+}
+
+/*
+ * Takes care of incoming messages
+ * 
+ * cache: MIP cache that stores MIP-addresses and MACs
+ * queue: queue of messages that is used when we have to broadcast
+ * ifs_data: structure that holds data on 
+ * my_mip_addr: my mip address
+ * 
+ * This method does the heavy lifting when it comes to processing and analyzing incoming messages.
+ * it performs checks based on the information in the message header and then takes actions based
+ * on that. 
+ *
+ */
+int handle_arp_packet(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uint8_t *my_mip_addr, struct sockaddr_ll so_name, struct ether_frame frame_hdr, struct mip_header header, uint8_t *buf)
+{
+	/*struct sockaddr_ll so_name;
+	struct ether_frame	frame_hdr;
+	struct msghdr	msg = {0};
+	struct iovec	msgvec[3];
+	struct mip_header	header;
+	*/
+	uint8_t valz;
+	int rc;
+	/*uint8_t buf[257];
+	memset(buf, 0, sizeof(buf));	
+	*/
+	/* Frame header */
+	/*
+	msgvec[0].iov_base	= &frame_hdr;
+	msgvec[0].iov_len	= sizeof(struct ether_frame);
+	
+	
+	msgvec[1].iov_base	= &header;
+	msgvec[1].iov_len	= sizeof(struct mip_header);
+
+	msgvec[2].iov_base	= buf;
+	msgvec[2].iov_len	= 255;//sizeof(struct mip_sdu);
+	
+	msg.msg_name	=	&so_name;
+	msg.msg_namelen	=	sizeof(struct sockaddr_ll);
+	msg.msg_iovlen	=	3;
+	msg.msg_iov	=	msgvec;
+		
+	if(debug_flag) printf("\n[<info>] Receving message with MIP header [<info>]\n");
+	
+	rc = recvmsg(ifs->rsock, &msg, 0);
+	if(rc == -1)
+	{
+		perror("sendmsg");
+		return -1;
+	} */
 
 	memcpy(&valz, buf, 1);
 	if(debug_flag)

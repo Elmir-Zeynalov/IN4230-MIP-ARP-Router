@@ -134,7 +134,8 @@ int main(int argc, char *argv[])
 			/* Someone triggered event on raw socket */
 			if(debug_flag) printf("[<info>] [RAW-SOCKET] The neighbor is initiating a MIP-ARP handshake [<info>]\n");
 
-			rc = handle_arp_packet(&cache, &queue,  &local_ifs, &MIP_address);
+			//rc = handle_arp_packet(&cache, &queue,  &local_ifs, &MIP_address);
+			rc = forwarding_engine(&cache, &queue,  &local_ifs, &MIP_address);
 			if (rc < 1) {
 				perror("recv");
 				break;
