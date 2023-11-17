@@ -9,7 +9,7 @@
 #include "cache.h" 
 #include "queue.h"
 
-#define MAX_EVENTS	10
+//#define MAX_EVENTS	10
 #define MAX_IF		3
 #define ETH_BROADCAST	{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 #define MAC_ADDR_LENGTH 6

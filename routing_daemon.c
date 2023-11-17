@@ -9,7 +9,7 @@
 #include <sys/un.h>             /* definitions for UNIX domain sockets */
 #include "routing_utils.h"
 
-void usage(char *arg)
+void usage_router(char *arg)
 {
         printf("Usage: %s [-h] <socket_lower>\n"
                 "Options:\n"
@@ -17,6 +17,13 @@ void usage(char *arg)
                 "\tsocket_lower: pathname of the UNIX socket used to interface with upper layers\n", arg);
 }
 
+/*
+ * Here we identify ourselves to the MIP daemon. 
+ * Since this is the Routing Daemon the SDU_TYPE we send to the MIP-Daemon is 0x04.
+ * This should be sent as soon as we establish a connection with the MIP-Daemon.
+ *
+ * 
+ */
 int identify_myself(int sd)
 {
                 uint8_t my_id = 0x04; //SDU_TYPE = ROUTING 
@@ -59,8 +66,6 @@ int routing_daemon_init(char *socket_lower)
                 struct timespec lastHelloSent;
                 struct timespec lastHelloRecv;
                 struct timespec timenow;
-                uint8_t hello[6] = "hello";
-
 
                 sd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
                 if (sd < 0) {
@@ -107,9 +112,11 @@ int routing_daemon_init(char *socket_lower)
                 }
                 
                 printf("waiting for Hello...\n");
+                send_routing_hello(sd);
                 rc = epoll_wait(epoll_fd, events, 10, -1);
                 if(rc == -1){
                                 perror("epoll_wait");
+                                close(sd);
                                 return -1;
                 }else{
                                 printf("Received the first hello ... entering INIT state\n");
@@ -127,6 +134,8 @@ int routing_daemon_init(char *socket_lower)
                                                                 hello,
                                                                 sizeof(hello));
 			                        */
+                                                //send_routing_hello(sd);
+                                                printf("[<info>] SENT HELLO TO MIP-DAEMON [<info>]\n");
                                                 clock_gettime(CLOCK_REALTIME, &lastHelloSent);
                                                 s_state = WAIT;
                                                 break;
@@ -183,20 +192,20 @@ int main (int argc, char *argv[])
                                 hflag = 1;
                                 break;
                         default:
-                                usage(argv[0]);
+                                usage_router(argv[0]);
                                 exit(EXIT_FAILURE);
                 }
         }
 
         if(hflag)
         {
-                usage(argv[0]);
+                usage_router(argv[0]);
                 exit(EXIT_SUCCESS);
         }
 
         if(argc < 2)
         {
-                usage(argv[0]);
+                usage_router(argv[0]);
                 exit(EXIT_SUCCESS);
         }
 

@@ -18,7 +18,7 @@
 #include "ping_utilities.h"
 #include "queue.h"
 #include "debug.h"
-
+#include "routing_utils.h"
 
 /*
  * Method that is used by the Daemon to distinguish who the connecting party is.
@@ -70,11 +70,13 @@ void handle_client(struct Cache *cache, struct Queue *queue, int fd, struct ifs_
         char buf[256];
         int rc;
         struct information received_info;
+	struct packet_ux pu;
 
         memset(buf,0,sizeof(buf));
         //rc = read(fd, &received_info, sizeof(struct information));
 	if(fd == local_ifs->unix_sock)
 	{
+		printf("[<info>] We got a message on the [PING/PONG] socket. [<info>]\n\n");
 		rc = read(local_ifs->unix_sock, &received_info, sizeof(struct information));
 		if(rc <= 0)
 		{
@@ -97,7 +99,8 @@ void handle_client(struct Cache *cache, struct Queue *queue, int fd, struct ifs_
 		}
 		send_msg(cache, queue, local_ifs, &MIP_address, received_info.destination_host, received_info.message, 255, received_info.ttl);
 	}else{
-		printf("[<info>] Message from routing daemon [<info>]\n"); 
+		printf("[<info>] We got a message on the [ROUTING DEAMON] socket. [<info>]\n\n");
+		handle_message_from_routing_daemon(local_ifs, &MIP_address, cache);
 	}
 }
 
@@ -347,17 +350,28 @@ int forwarding_engine(struct Cache *cache, struct Queue *queue, struct ifs_data 
 		return -1;
 	}
 	
-	//IS the message for me? or is it broadcast
+	/*
+	 * Main forwarding logic
+	 * 1) Check if MIP_DST is meant for ME or if its a Broadcast
+	 * 2) If (1) failed then 
+	 *	Check if TTL is valid and then try to figure out next hop
+	 * 3) If both of the above fail then 
+	 *	- packet not meant for me
+	 *	- TTL expired
+	 *	We need to discard the packet
+	 */
 	if(header.dst_addr == *my_mip_addr || header.dst_addr == 0xFF){
 		printf("[<info>] MIP Destination == My MIP || 0xFF [<info>]\n");
-		handle_arp_packet(cache, queue, ifs , my_mip_addr, so_name, frame_hdr,  header, buf);
-	}else{
-		printf("What am i doing here...\n");
-	}
-
-	//TTL check 
-	if(--header.ttl > 0){
-
+		printf("[<info>] Need to handle arp packet... [<info>]\n");
+		handle_arp_packet(cache, queue, ifs , my_mip_addr, so_name, frame_hdr, header, buf);
+	}else if(--header.ttl > 0) {
+		printf("[<info>] MIP Destionation != My MIP && != 0xFF [<info>]\n");
+		printf("[<info>] Passed TTL check as well. So, we have to forward this message somewhere [<info>]\n");
+		printf("[<info>] Need to get information from Routing Daemon. [<info>]\n");
+	}else {
+		printf("[<info>] MIP Destination != My MIP && TTL <= 0 [<info>]\n");
+		printf("[<info>] Need to discard message due to failing TTL check. [<info>]\n");
+		printf("[<info>] TTL: [%d] [<info>]\n", header.ttl);
 	}
 	
 	return 1;
@@ -514,9 +528,14 @@ int handle_arp_packet(struct Cache *cache, struct Queue *queue, struct ifs_data 
 			return -1;
 		}
 		if(debug_flag) printf("[<info>] Forwarding message to Pong-Server Application. [<info>]\n");
-	}else {
-		printf("Undefined message.\n");
+	}else if(header.sdu_type == MIP_ROUTING){
+		if(1) printf("[<info>] Received message. Type: *MIP-ROUTING* [<info>]\n");
+		if(1) printf("[<info>] Sending HELLO to Routing Daemon [<info>]\n");
 
+
+
+
+	}else{
 	}
 	return 1;
 }
@@ -635,9 +654,8 @@ int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t dst_mip, st
 	frame_hdr.eth_proto[1] = (htons(0x88B5) >> (8*1)) & 0xff;
 
 	struct mip_header	header;
-	//struct mip_sdu		sdu;
-	
-	header = construct_mip_header(0xFF, *src_mip, DEFAULT_TTL, sizeof(uint8_t), MIP_ARP);
+	//create MIP header with TTL=0x01	
+	header = construct_mip_header(0xFF, *src_mip, 0x01, sizeof(uint8_t), MIP_ARP);
 
 	/* frame header */
 	msgvec[0].iov_base	= &frame_hdr;
