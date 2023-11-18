@@ -29,8 +29,9 @@ struct packet_ux{
     char msg[255];
 }__attribute__((packed));
 
-void send_routing_hello(int unix_sock);
+void send_routing_hello(int unix_sock, uint8_t mip_sender);
 void lookup_request(int unix_sock, uint8_t host_mip, uint8_t requested_mip);
 void lookup_response(int unix_sock, uint8_t host_mip, uint8_t requested_mip);
 void handle_message_from_routing_daemon(struct ifs_data *ifs, uint8_t *src_mip , struct Cache *cache);
+int send_message_to_routing_daemon(struct ifs_data *ifs, uint8_t from_mip, char *buff, size_t len);
 #endif

@@ -7,7 +7,10 @@
 #include <sys/epoll.h>  /* epoll */
 #include <sys/socket.h> /* sockets operations */
 #include <sys/un.h>             /* definitions for UNIX domain sockets */
+
 #include "routing_utils.h"
+#include "routing_table.h"
+#include "routing_interface_to_mip_daemon.h"
 
 void usage_router(char *arg)
 {
@@ -53,7 +56,7 @@ double diff_time_ms(struct timespec start, struct timespec end)
 	return ms;
 }
 
-int routing_daemon_init(char *socket_lower)
+int routing_daemon_init(char *socket_lower, struct Table *routing_table)
 {
                 struct sockaddr_un addr;
                 char   buf[255];
@@ -112,7 +115,8 @@ int routing_daemon_init(char *socket_lower)
                 }
                 
                 printf("waiting for Hello...\n");
-                send_routing_hello(sd);
+                send_routing_hello(sd, 99);
+                struct packet_ux pu;
                 rc = epoll_wait(epoll_fd, events, 10, -1);
                 if(rc == -1){
                                 perror("epoll_wait");
@@ -120,45 +124,102 @@ int routing_daemon_init(char *socket_lower)
                                 return -1;
                 }else{
                                 printf("Received the first hello ... entering INIT state\n");
+                                read(sd, &pu, sizeof(struct packet_ux));
+
+                                printf("RECEIVE [%d]\n[%d]\n[%s]\n", pu.mip, pu.ttl, pu.msg);
+                                
                                 s_state = INIT;
                                 clock_gettime(CLOCK_REALTIME, &lastHelloRecv);
                 }
+                while(1)
+                {
+                                printf("------ Start WW --------\n\n");
+                                switch (s_state) {
+                                                case INIT:
+                                                                printf("STATE [INIT]\n\n"); 
+                                                                send_routing_hello(sd,99);
+                                                                s_state = WAIT;
+                                                                break;
+                                                case WAIT:
+                                                                printf("STATE [WAIT]\n\n");
+                                                                rc = epoll_wait(epoll_fd, events, 10, 3000);
+                                                                if(rc == -1){
+                                                                                perror("epoll_wait");
+                                                                                close(sd);
+                                                                                return -1;
+                                                                }
 
+                                                                else if(rc == 0)
+                                                                {
+                                                                                printf("Epoll Timeout--\n");
+                                                                                printf("\n");
+                                                                                s_state = INIT;
+                                                                }
+                                                                else{
+                                                                                printf("Receive MESSAGE ... entering INIT state\n");
+                                                                                rc = read(sd, &pu, sizeof(struct packet_ux));
+                                                                                if(rc == 0){
+                                                                                                printf("Connection closed by MIP DAEMON :( \n");
+                                                                                                s_state = EXIT;
+                                                                                }else if(rc == -1){
+                                                                                                perror("read");
+                                                                                }else{
+                                                                                                printf("RECEIVE [%d]\n[%d]\n[%s]\n", pu.mip, pu.ttl, pu.msg);
+                                                                                                handle_routing_message(&pu, routing_table);
+                                                                                }
+                                                                }
+
+
+
+
+                                                                break;
+                                                case EXIT:
+                                                                printf("WE EXITING\n");
+                                                                close(sd);
+                                                                exit(EXIT_SUCCESS);
+                                                                break;
+
+                                                default:
+                                                                printf("ERROR\n");
+                                                                close(sd);
+                                                                exit(EXIT_SUCCESS);
+                                                                break;
+                                }
+                }
+                
+                /*
 
                 while (1) {
                                 switch (s_state) {
                                 case INIT:
-                                                /* Send hello to the neighbor. */
-                                                /*send_raw_packet(raw_sock,
-                                                                &so_name,
-                                                                hello,
-                                                                sizeof(hello));
-			                        */
                                                 //send_routing_hello(sd);
                                                 printf("[<info>] SENT HELLO TO MIP-DAEMON [<info>]\n");
                                                 clock_gettime(CLOCK_REALTIME, &lastHelloSent);
                                                 s_state = WAIT;
                                                 break;
                                 case WAIT:
-                                                rc = epoll_wait(epollfd, events, 10, 1000);
+
+                                                printf("WAITINNNNN\n");
+                                                rc = epoll_wait(epollfd, events, 10, -1);
                                                 if (rc == -1) {
                                                                 perror("epoll_wait");
                                                                 exit(EXIT_FAILURE);
                                                 } else if (rc == 0) {
+                                                                /
                                                                 clock_gettime(CLOCK_REALTIME, &timenow);
                                                                 if (diff_time_ms(lastHelloRecv, timenow) > HELLO_TIMEOUT) {
-                                                                /* Timeout expired and didn't get any Hello */ 
+                                                                printf("Timeout expired and didn't get any Hello\n"); 
                                                                                 s_state = EXIT;
                                                                                 continue;
                                                                 } else {
                                                                                 if (diff_time_ms(lastHelloSent, timenow) >= HELLO_INTERVAL) {
-                                                                                /* Time to send HELLO */
+                                                                                 printf(Time to send HELLO\n");
                                                                                                 s_state = INIT;
                                                                                                 continue;
                                                                                 }
                                                                 }
+                                                                /
                                                 } else {
-                                                                /* epoll() was triggered -> read the HELLO */
                                                                 //if (recv_raw_packet(raw_sock, buf, BUF_SIZE) <= 0)
                                                                 s_state = EXIT;
                                                                 // else {
@@ -176,7 +237,7 @@ int routing_daemon_init(char *socket_lower)
                                                 break;
                                 }
                 }
-
+                */
                 close(sd);
 }
 
@@ -209,9 +270,11 @@ int main (int argc, char *argv[])
                 exit(EXIT_SUCCESS);
         }
 
-
         char *socket_lower = argv[1];
         printf("Socket Lower: %s\n", socket_lower);
-        routing_daemon_init(socket_lower);
+        struct Table routing_table;
+                
+        initializeTable(&routing_table);        
+        routing_daemon_init(socket_lower, &routing_table);
         return 0;
 }

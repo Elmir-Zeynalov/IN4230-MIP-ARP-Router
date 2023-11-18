@@ -1,6 +1,11 @@
 #include "daemon_routing_utils.h"
 #include "mip.h"
 
+
+
+
+
+
 int disseminate_hello_message(struct ifs_data *ifs, uint8_t *src_mip, char *message, size_t len, struct Cache *cache)
 {
     struct ether_frame      frame_hdr;
@@ -80,5 +85,4 @@ int disseminate_hello_message(struct ifs_data *ifs, uint8_t *src_mip, char *mess
         }
 
         return rc;  
-
 }

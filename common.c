@@ -530,9 +530,9 @@ int handle_arp_packet(struct Cache *cache, struct Queue *queue, struct ifs_data 
 		if(debug_flag) printf("[<info>] Forwarding message to Pong-Server Application. [<info>]\n");
 	}else if(header.sdu_type == MIP_ROUTING){
 		if(1) printf("[<info>] Received message. Type: *MIP-ROUTING* [<info>]\n");
-		if(1) printf("[<info>] Sending HELLO to Routing Daemon [<info>]\n");
-
-
+		if(1) printf("[<info>] Sending [HELLO] From MIP [%d] to Routing Daemon [<info>]\n", header.src_addr);
+		
+		send_message_to_routing_daemon(ifs, header.src_addr,(char*)buf, sizeof(buf));
 
 
 	}else{
