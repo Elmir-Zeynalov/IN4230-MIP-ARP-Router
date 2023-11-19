@@ -1,3 +1,4 @@
+#include <bits/time.h>
 #include <stdint.h>
 #include <stdio.h>              /* standard input/output library functions */
 #include <stdlib.h>             /* standard library definitions (macros) */
@@ -70,6 +71,11 @@ int routing_daemon_init(char *socket_lower, struct Table *routing_table)
                 struct timespec lastHelloRecv;
                 struct timespec timenow;
 
+
+                
+                struct timespec lastTableUpdateSent;
+
+
                 sd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
                 if (sd < 0) {
                                 perror("socket");
@@ -114,8 +120,11 @@ int routing_daemon_init(char *socket_lower, struct Table *routing_table)
                                 return -1;
                 }
                 
-                printf("waiting for Hello...\n");
+                
                 send_routing_hello(sd, 99);
+                clock_gettime(CLOCK_REALTIME, &lastHelloSent);
+
+
                 struct packet_ux pu;
                 rc = epoll_wait(epoll_fd, events, 10, -1);
                 if(rc == -1){
@@ -139,10 +148,11 @@ int routing_daemon_init(char *socket_lower, struct Table *routing_table)
                                                                 printf("STATE [INIT]\n\n"); 
                                                                 send_routing_hello(sd,99);
                                                                 s_state = WAIT;
+                                                                clock_gettime(CLOCK_REALTIME, &lastHelloSent);
                                                                 break;
                                                 case WAIT:
                                                                 printf("STATE [WAIT]\n\n");
-                                                                rc = epoll_wait(epoll_fd, events, 10, 3000);
+                                                                rc = epoll_wait(epoll_fd, events, 10, 1000);
                                                                 if(rc == -1){
                                                                                 perror("epoll_wait");
                                                                                 close(sd);
@@ -153,7 +163,18 @@ int routing_daemon_init(char *socket_lower, struct Table *routing_table)
                                                                 {
                                                                                 printf("Epoll Timeout--\n");
                                                                                 printf("\n");
-                                                                                s_state = INIT;
+                                                                                clock_gettime(CLOCK_REALTIME, &timenow);
+                                                                                printf("TimeNow: %lld\n", (long long)timenow.tv_sec);
+                                                                                printf("lastHelloSent: %lld\n", (long long)lastHelloSent.tv_sec);
+                                                                                printf("lastTableUpdate: %lld\n", (long long)lastTableUpdateSent.tv_sec);
+
+                                                                                if(diff_time_ms(lastHelloSent, timenow) > HELLO_TIMEOUT)
+                                                                                {
+                                                                                                s_state = INIT;
+                                                                                }else if(diff_time_ms(lastTableUpdateSent, timenow) > TABLE_UPDATE_TIMEOUT){
+                                                                                                printf("its been a while since we advertised our Routing Table []\n");
+                                                                                                s_state = ADVERTISE_ROUTING_TABLE;
+                                                                                }
                                                                 }
                                                                 else{
                                                                                 printf("Receive MESSAGE ... entering INIT state\n");
@@ -169,9 +190,13 @@ int routing_daemon_init(char *socket_lower, struct Table *routing_table)
                                                                                 }
                                                                 }
 
+                                                                break;
 
-
-
+                                                case ADVERTISE_ROUTING_TABLE:
+                                                                printf("STATE: ADVERTISING ROUTES\n"); 
+                                                                advertise_my_routing_table(sd, routing_table);
+                                                                clock_gettime(CLOCK_REALTIME,&lastTableUpdateSent);
+                                                                s_state = WAIT;
                                                                 break;
                                                 case EXIT:
                                                                 printf("WE EXITING\n");

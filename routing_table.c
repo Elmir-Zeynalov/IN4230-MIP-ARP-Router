@@ -69,7 +69,7 @@ void print_routing_table(struct Table *routing_table)
         printf("**************************\n");
         if(routing_table->num_entries > 0)
         {
-            printf("\tMIP\tNext-hop\tHop Count\n");
+            printf("*MIP\tNext-hop\tHop Count\n");
             for(i = 0; i < routing_table->num_entries; i++)
             {
                 printf("* %d\t|", routing_table->entries[i].mip_address);

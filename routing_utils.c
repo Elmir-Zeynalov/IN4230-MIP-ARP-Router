@@ -2,7 +2,7 @@
 #include "daemon_routing_utils.h"
 #include <stdint.h>
 #include <string.h>
-
+#include "routing_table.h"
 
 
 void send_routing_hello(int unix_sock, uint8_t mip_sender)
@@ -81,6 +81,9 @@ void handle_message_from_routing_daemon(struct ifs_data *ifs, uint8_t *src_mip, 
     type[3] = '\0';
 
     printf("[<info>] Message from routing daemon [%s] [<info>]\n", type);
+    printf("%s\n", pu.msg);
+    printf("TYPE: %s\n", type);
+
     if(strcmp(type, ROUTING_HELLO) == 0)
     {
         printf("[<info>] Handling [HELLO] from routing daemon [<info>]\n");
@@ -89,6 +92,16 @@ void handle_message_from_routing_daemon(struct ifs_data *ifs, uint8_t *src_mip, 
     if(strcmp(type, ROUTING_UPDATE) == 0)
     {
         printf("[<info>] Handling [UPDATE] from routing daemon [<info>]\n");
+        int number_of_routing_table_entries;
+        memcpy(&number_of_routing_table_entries, &pu.msg[3] , sizeof(int));
+        printf("Number of Entries in Incoming Routing Table [%d]\n", number_of_routing_table_entries);
+
+        struct TableEntry table_entry;
+        memcpy(&table_entry, pu.msg + 3 + sizeof(int), sizeof(struct TableEntry));
+        printf("----[%d\t%d\t%d]------\n",table_entry.mip_address, table_entry.next_hop, table_entry.number_of_hops);
+        printf("XXXXXXXXX\n");
+
+        disseminate_update_message(ifs, src_mip, pu.msg, 255);
     }
     if(strcmp(type, ROUTING_REQUEST) == 0)
     {

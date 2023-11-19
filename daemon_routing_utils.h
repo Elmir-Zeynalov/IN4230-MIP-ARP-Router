@@ -21,5 +21,5 @@
 
 
 int disseminate_hello_message(struct ifs_data *ifs, uint8_t *src_mip, char *message, size_t len, struct Cache *cache);
-
+int disseminate_update_message(struct ifs_data *ifs, uint8_t *src_mip, char *message, size_t len);
 #endif
