@@ -28,6 +28,7 @@ enum state {
 struct packet_ux{
     uint8_t mip : 8;
     uint8_t ttl ;
+    uint8_t my_mip;
     char msg[255];
 }__attribute__((packed));
 

@@ -59,6 +59,37 @@ void deleteFromTable(struct Table* Table, uint8_t mip) {
     }
 }
 
+void update_routing_table(struct Table *routing_table, uint8_t my_mip, uint8_t mip_address, struct TableEntry *table_entry){
+
+    if(table_entry->mip_address == my_mip){
+        printf("Incoming entry is ME. So, we ignore it...\n");
+        return;
+    }
+    //check is it me?
+    //check if i have it in my table already?
+    //check if the hop_count i have is more efficient or not
+    //update if needed. Else ignore
+    struct TableEntry *local_entry = isInTable(routing_table, table_entry->mip_address);
+    if(local_entry != NULL){
+        if(local_entry->number_of_hops > table_entry->number_of_hops + 1){
+            local_entry->next_hop = mip_address;
+            local_entry->number_of_hops = table_entry->number_of_hops+1;
+        }else{
+            printf("We tried to update, BUT the entry we already is more efficient. IGNORE.\n");
+            printf("\tLocal:\t%d|%d|%d\n", local_entry->mip_address,local_entry->next_hop, local_entry->number_of_hops);
+            printf("\tIncoming:\t %d|%d|%d\n", table_entry->mip_address, table_entry->next_hop, table_entry->number_of_hops);
+        }
+    }
+    else {
+        printf("We tried to update, BUT the entry we already is more efficient. IGNORE.\n");
+        printf("\tIncoming:\t %d|%d|%d\n", table_entry->mip_address, table_entry->next_hop, table_entry->number_of_hops);
+        addToTable(routing_table, table_entry->mip_address,mip_address, table_entry->number_of_hops + 1);
+    }
+
+
+    printf("TABLE UPDATED\n");
+
+}
 
 
 void print_routing_table(struct Table *routing_table)

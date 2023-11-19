@@ -24,9 +24,18 @@ int handle_routing_message(struct packet_ux *pu, struct Table *routing_table)
         memcpy(&number_of_entries, pu->msg + 3, sizeof(int));
         printf("\tNumber of entries: %d\n", number_of_entries);
         
-        struct TableEntry table_entry;
-        memcpy(&table_entry, pu->msg + 3 + sizeof(int), sizeof(struct TableEntry));
-        printf("----[%d\t%d\t%d]------\n",table_entry.mip_address, table_entry.next_hop, table_entry.number_of_hops);
+        int i;
+        for(i = 0 ; i < number_of_entries; i++)
+        {
+            struct TableEntry table_entry;
+            memcpy(&table_entry, pu->msg + (3 + sizeof(int) + (i * sizeof(struct TableEntry))), sizeof(struct TableEntry));
+
+            update_routing_table(routing_table, pu.my_mip, pu->mip, table_entry);
+
+            printf("----[%d\t%d\t%d]------\n",table_entry.mip_address, table_entry.next_hop, table_entry.number_of_hops);
+        }
+
+
     }
 
     if(strncmp(pu->msg, ROUTING_REQUEST,3) == 0){

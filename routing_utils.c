@@ -137,13 +137,10 @@ int send_message_to_routing_daemon(struct ifs_data *ifs, uint8_t from_mip, char 
 
     printf("Entries: %d\n", entries);
     struct TableEntry t;
-    struct TableEntry t2;
 
     memcpy(&t,  (pu.msg + 3) + sizeof(int), sizeof(struct TableEntry));
-    memcpy(&t2, buff + 3 + sizeof(int), sizeof(struct TableEntry));
 
     printf("T-Entry: %d|%d|%d\n", t.mip_address, t.next_hop, t.number_of_hops);
-    printf("T-Entry: %d|%d|%d -- BUFF\n", t2.mip_address, t2.next_hop, t2.number_of_hops);
 
     printf("}\n\n");
     rc = write(ifs->routin_sock, &pu, sizeof(struct packet_ux));
