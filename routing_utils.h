@@ -7,11 +7,11 @@
 #include "daemon_routing_utils.h"
 
 
-#define HELLO_INTERVAL 3000
+#define HELLO_INTERVAL 6000//3000
 #define HELLO_TIMEOUT  5000
 #define MAX_EVENTS 5
 #define MAX_CONNS 5
-#define TABLE_UPDATE_TIMEOUT 7000
+#define TABLE_UPDATE_TIMEOUT 4000
 
 enum state {
     INIT = 0,

@@ -122,8 +122,30 @@ int send_message_to_routing_daemon(struct ifs_data *ifs, uint8_t from_mip, char 
 
     struct packet_ux pu;
     pu.mip = from_mip;
-    memcpy(&pu.msg, buff, len);
-    printf("[<info>] Forwarding message [%s] FROM MIP [%d] to Routing daemon [<info>]\n", buff, pu.mip);
+
+    //memcpy(&pu.msg, buff, sizeof(pu.msg));
+    memcpy(pu.msg, buff, sizeof(pu.msg));
+    printf("{\n");
+    //printf("[<info>] Forwarding message [%s] FROM MIP [%d] to Routing daemon [<info>]\n", buff, pu.mip);
+
+    printf("%c\n", buff[0]);
+    printf("%c\n", buff[1]);
+    printf("%c\n", buff[2]);
+    
+    int entries;
+    memcpy(&entries, pu.msg +3, sizeof(int));
+
+    printf("Entries: %d\n", entries);
+    struct TableEntry t;
+    struct TableEntry t2;
+
+    memcpy(&t,  (pu.msg + 3) + sizeof(int), sizeof(struct TableEntry));
+    memcpy(&t2, buff + 3 + sizeof(int), sizeof(struct TableEntry));
+
+    printf("T-Entry: %d|%d|%d\n", t.mip_address, t.next_hop, t.number_of_hops);
+    printf("T-Entry: %d|%d|%d -- BUFF\n", t2.mip_address, t2.next_hop, t2.number_of_hops);
+
+    printf("}\n\n");
     rc = write(ifs->routin_sock, &pu, sizeof(struct packet_ux));
     if(rc <= 0) 
     {
