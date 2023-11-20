@@ -186,7 +186,7 @@ int routing_daemon_init(char *socket_lower, struct Table *routing_table)
                                                                                                 perror("read");
                                                                                 }else{
                                                                                                 printf("RECEIVE [%d]\n[%d]\n[%s]\n", pu.mip, pu.ttl, pu.msg);
-                                                                                                handle_routing_message(&pu, routing_table);
+                                                                                                handle_routing_message(sd, &pu, routing_table);
                                                                                 }
                                                                 }
 

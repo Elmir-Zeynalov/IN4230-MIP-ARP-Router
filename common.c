@@ -135,6 +135,7 @@ int send_msg(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uin
 		send_ping_message(cache_entry, ifs, src_mip, &dst_mip, buf, buf_len, cache, ttl);
 	}else{
 		//we need to broadcast a message ...... 
+		/*
 		if(1) printf("[<info>] Cache miss, need to send a broadcast to find: %d [<info>]\n", dst_mip);
 		rc = send_arp_request(ifs, src_mip, dst_mip, cache); 
 		
@@ -143,6 +144,16 @@ int send_msg(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uin
 		if(1) printf("[<info>] Storing message [%s] in buffer until further notice.[<info>]\n", buf);
 		if(1) printf("[<info>] TTL: %d\n", ttl);
 		addToQueue(queue, dst_mip, buf, buf_len, ttl);
+		*/ 
+
+		if(1) printf("[<info>] Cache miss, need to send a broadcast to find: %d [<info>]\n", dst_mip);
+		if(1) printf("[<info>] Storing message [%s] in buffer until further notice.[<info>]\n", buf);
+		addToQueue(queue, dst_mip, buf, buf_len, ttl);
+		if(1) printf("[<info>] Making Request to Routing Daemon to find [%d].[<info>]\n", dst_mip);
+
+		lookup_request(ifs->routin_sock, *src_mip, dst_mip);	
+
+
 	}
 
 	return rc;
@@ -533,7 +544,7 @@ int handle_arp_packet(struct Cache *cache, struct Queue *queue, struct ifs_data 
 		if(1) printf("------Daemon received ROUTING MSG from other Daemon. PROCESSING\n");
 		if(1) printf("[<info>] Sending [HELLO] From MIP [%d] to Routing Daemon [<info>]\n\n", header.src_addr);
 		
-		send_message_to_routing_daemon(ifs, header.src_addr,(char*)buf, sizeof(buf));
+		send_message_to_routing_daemon(ifs, header.src_addr, *my_mip_addr, (char*)buf, sizeof(buf));
 
 
 	}else{

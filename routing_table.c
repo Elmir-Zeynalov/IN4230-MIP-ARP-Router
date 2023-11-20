@@ -21,7 +21,8 @@ void addToTable(struct Table* routingTable, uint8_t mip, uint8_t next_hop, uint8
                 previousEntry->number_of_hops = number_of_hops;
                 previousEntry->next_hop = next_hop;
             }else{
-                printf("[<info>] Updating previous entry in RT with a more efficient route [<info>]\n");
+                printf("[<info>] NO UPDATE TO TABLE: PREV: [%d] NEW: [%d] [<info>]\n", previousEntry->number_of_hops, number_of_hops);
+                return;
             }
 
         }else{

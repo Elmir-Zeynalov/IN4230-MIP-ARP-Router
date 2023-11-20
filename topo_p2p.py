@@ -21,9 +21,14 @@ class MyTopo( Topo ):
         hostA = self.addHost( 'A' )
         hostB = self.addHost( 'B' )
         hostC = self.addHost( 'C' )
+        hostD = self.addHost( 'D' )
+        hostE = self.addHost( 'E' )
 
         # Add link
         self.addLink( hostA, hostB )
         self.addLink( hostB, hostC )
+        self.addLink( hostB, hostD )
+        self.addLink( hostC, hostD )
+        self.addLink( hostD, hostE )
 
 topos = { 'mytopo': ( lambda: MyTopo() ) }

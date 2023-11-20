@@ -26,7 +26,13 @@ void send_routing_hello(int unix_sock, uint8_t mip_sender)
 */
 void lookup_request(int unix_sock, uint8_t host_mip, uint8_t requested_mip)
 {
-    struct packet_ux *pu;
+    //<MIP address of the host itself (8 bits)> <zero (0) TTL (8 bits)> <R (0x52, 8 bits)> <E (0x45, 8 bits)> <Q (0x51, 8 bits)> <MIP address to look up (8 bits)>
+
+    struct packet_ux pu;
+    pu.my_mip = host_mip;
+    pu.mip = requested_mip;
+    pu.ttl = 0;
+    /*
     char buff[255];
     pu = (struct packet_ux*)buff;
     memset(pu->msg, 0, 255);
@@ -35,8 +41,26 @@ void lookup_request(int unix_sock, uint8_t host_mip, uint8_t requested_mip)
     pu->ttl = 0;
     memcpy(&pu->msg,ROUTING_REQUEST,3); 
     memcpy(&pu->msg[3], &requested_mip, 1);
+    */
+    char *req = "REQ";
+    uint8_t ttl = 0; 
+
+    memcpy(pu.msg, &host_mip, sizeof(uint8_t));
+    memcpy(pu.msg + 1, &ttl, sizeof(uint8_t));
+    memcpy(pu.msg + 2, req, 3);
+    memcpy(pu.msg + 5, &requested_mip, sizeof(uint8_t));
     
-    write(unix_sock, &pu, 8);
+    printf("//////////////////////\n");
+    printf("%d\n", pu.msg[0]);
+    printf("%d\n", pu.msg[1]);
+    
+    printf("%c\n", pu.msg[2]);
+    printf("%c\n", pu.msg[3]);
+    printf("%c\n", pu.msg[4]);
+    
+    printf("%d\n", pu.msg[5]);
+    printf("//////////////////////\n\n");
+    write(unix_sock, &pu, sizeof(struct packet_ux));
 }
 
 /*
@@ -79,6 +103,8 @@ void handle_message_from_routing_daemon(struct ifs_data *ifs, uint8_t *src_mip, 
     char type[4];
     memcpy(type, pu.msg, 3);
     type[3] = '\0';
+    
+
 
     printf("[<info>] Message from routing daemon [%s] [<info>]\n", type);
     printf("%s\n", pu.msg);
@@ -107,22 +133,24 @@ void handle_message_from_routing_daemon(struct ifs_data *ifs, uint8_t *src_mip, 
     {
         printf("[<info>] Handling [REQUEST] from routing daemon [<info>]\n");
     }
-    if(strcmp(type, ROUTING_RESPONSE) == 0)
+
+    if(strncmp(pu.msg + 2, ROUTING_RESPONSE,3) == 0)
     {
         printf("[<info>] Handling [RESPONSE] from routing daemon [<info>]\n");
+        printf("WE got the goods?\n");
     }
 
 
 
 }
 
-int send_message_to_routing_daemon(struct ifs_data *ifs, uint8_t from_mip, char *buff, size_t len)
+int send_message_to_routing_daemon(struct ifs_data *ifs, uint8_t from_mip, uint8_t my_mip_addr, char *buff, size_t len)
 {
     int rc;
 
     struct packet_ux pu;
     pu.mip = from_mip;
-
+    pu.my_mip = my_mip_addr;
     //memcpy(&pu.msg, buff, sizeof(pu.msg));
     memcpy(pu.msg, buff, sizeof(pu.msg));
     printf("{\n");
