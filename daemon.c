@@ -28,9 +28,13 @@ int main(int argc, char *argv[])
 	
 	struct Cache cache;
 	struct Queue queue;
+	struct Queue broadcast_queue; 
 	
+	//Init queues + cache
 	initializeCache(&cache);
 	initializeQueue(&queue);
+	initializeQueue(&broadcast_queue);
+
 	struct ifs_data local_ifs;
 	int raw_sock, rc;
 	int unix_sock;
@@ -134,7 +138,8 @@ int main(int argc, char *argv[])
 			/* Someone triggered event on raw socket */
 			if(debug_flag) printf("[<info>] [RAW-SOCKET] The neighbor is initiating a MIP-ARP handshake [<info>]\n");
 
-			rc = handle_arp_packet(&cache, &queue,  &local_ifs, &MIP_address);
+			//rc = handle_arp_packet(&cache, &queue,  &local_ifs, &MIP_address);
+			rc = forwarding_engine(&cache, &queue, &broadcast_queue, &local_ifs, &MIP_address);
 			if (rc < 1) {
 				perror("recv");
 				break;
@@ -154,10 +159,7 @@ int main(int argc, char *argv[])
 				close(unix_sock);
 				exit(EXIT_FAILURE);
 			}
-			//accepted_sd = accept_sd; // we take care of the file descriptor of the connected client/server for later use
-			//local_ifs.unix_sock = accepted_sd;
 		}else{
-
 			/* Someone has triggered an event on an existing connection */
 			/* Who exactly is sending messages is stored in local_ifs.unix_sock */
 			if(debug_flag) printf("[<info>] [UNIX-SOCKET] Existing client has sent a message [<info>]\n");
@@ -167,8 +169,10 @@ int main(int argc, char *argv[])
 			*/
 			if(events->data.fd == local_ifs.routin_sock || events->data.fd == local_ifs.unix_sock)
 			{
-				handle_client(&cache, &queue, events->data.fd, &local_ifs, MIP_address);
+				//if we are then we know the the incoming message is on one of the UNIX sockets
+				handle_client(&cache, &queue, &broadcast_queue, events->data.fd, &local_ifs, MIP_address);
 			}else {
+				//upon first connection  (we try to figure out who is who)
 				determine_unix_connection(events->data.fd, &local_ifs);
 			}
 		}

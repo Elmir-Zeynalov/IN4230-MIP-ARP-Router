@@ -7,6 +7,7 @@
 struct information {
     uint8_t destination_host;
     char message[256];
+    uint8_t ttl;
 };
 
 #endif
