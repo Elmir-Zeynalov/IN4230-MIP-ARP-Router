@@ -45,7 +45,8 @@ void deleteFromQueue(struct Queue* queue, uint8_t dst_mip) {
     }
 }
 
-
+//Pops the very first item in the queue, fixes the order by
+//moving the rest of the queue forwards.
 struct QueueEntry* popFromQueue(struct Queue* queue) {
     if (queue->num_entries > 0) {
         // Retrieve the pointer to the first entry in the queue

@@ -43,16 +43,6 @@ void lookup_request(int unix_sock, uint8_t host_mip, uint8_t requested_mip)
     memcpy(pu.msg + 2, req, 3);
     memcpy(pu.msg + 5, &requested_mip, sizeof(uint8_t));
     
-    printf("//////////////////////\n");
-    printf("%d\n", pu.msg[0]);
-    printf("%d\n", pu.msg[1]);
-    
-    printf("%c\n", pu.msg[2]);
-    printf("%c\n", pu.msg[3]);
-    printf("%c\n", pu.msg[4]);
-    
-    printf("%d\n", pu.msg[5]);
-    printf("//////////////////////\n\n");
     write(unix_sock, &pu, sizeof(struct packet_ux));
 }
 
@@ -79,7 +69,19 @@ void lookup_response(int unix_sock, uint8_t host_mip, uint8_t requested_mip)
 }
 
 
-
+/*
+ * Method used by the MIP daemon when receiving a message from the Routing daemon
+ * It here where we decide, bsed on the msg type in packet_ux what we should do 
+ * This is where we know if the routing daemon wants us to advertise HELLO, its ROUTING tabke or
+ * when it replies to our routing requests. 
+ * This is where we get the potential next-hop from the routing daemon. 
+ *
+ * F.ex 
+ * - if the mip daemon should advertise a routing table
+ * - broadcast a hello message to its neighbours (hello passed from the routing daemon)
+ * - receving a response to a routing request! -
+ *
+ */
 void handle_message_from_routing_daemon(struct ifs_data *ifs, uint8_t *src_mip, struct Queue *broadcast_queue, struct Cache *cache)
 {
     int rc;
@@ -99,9 +101,6 @@ void handle_message_from_routing_daemon(struct ifs_data *ifs, uint8_t *src_mip, 
 
 
     printf("[<info>] Message from routing daemon [%s] [<info>]\n", type);
-    printf("%s\n", pu.msg);
-    printf("TYPE: %s\n", type);
-
     if(strcmp(type, ROUTING_HELLO) == 0)
     {
         printf("[<info>] Handling [HELLO] from routing daemon [<info>]\n");
@@ -117,7 +116,6 @@ void handle_message_from_routing_daemon(struct ifs_data *ifs, uint8_t *src_mip, 
         struct TableEntry table_entry;
         memcpy(&table_entry, pu.msg + 3 + sizeof(int), sizeof(struct TableEntry));
         printf("----[%d\t%d\t%d]------\n",table_entry.mip_address, table_entry.next_hop, table_entry.number_of_hops);
-        printf("XXXXXXXXX\n");
 
         disseminate_update_message(ifs, src_mip, pu.msg, 255);
     }
@@ -126,7 +124,6 @@ void handle_message_from_routing_daemon(struct ifs_data *ifs, uint8_t *src_mip, 
 
         uint8_t next_hop = (unsigned char)pu.msg[5];
         printf("[<info>] Handling [RESPONSE] from routing daemon [<info>]\n");
-        printf("[info] Received RSP from Routing Daemon [info]\n");
         printf("<MIP: %d> <TTL: %d> <%c> <%c> <%c> <NEXT HOP: %u>\n", pu.msg[0], pu.msg[1], pu.msg[2], pu.msg[3], pu.msg[4], next_hop);
         
         if(next_hop == 255){
@@ -142,25 +139,25 @@ void handle_message_from_routing_daemon(struct ifs_data *ifs, uint8_t *src_mip, 
             printf("[<info>] Sending BROADCAST [<info>]\n");
             
             struct QueueEntry *check = isInQueue(broadcast_queue, next_hop);
-            printf("QUICKCHEK: [%d]\n", check->src_mip);
-
             send_arp_request(ifs, src_mip, next_hop, cache);
-            
         }else{
             //We have the next_hop in our cache so we can directly send to it
            printf("[<info>] We have the next-hop in our cache already!! [<info>]\n"); 
 
         }
     }
-        
-        //need to package and pass
-
-    
-
-
-
 }
 
+/*
+* Used to pass a message to the routing daemon. 
+* given the parameters, it builds a packet_ux message and sends it to the routing daemon
+* 
+* from_mip: src mip address
+* my_mip_addr: the mip address of the requester
+* buff: message
+* len: length
+*
+*/
 int send_message_to_routing_daemon(struct ifs_data *ifs, uint8_t from_mip, uint8_t my_mip_addr, char *buff, size_t len)
 {
     int rc;
@@ -168,26 +165,14 @@ int send_message_to_routing_daemon(struct ifs_data *ifs, uint8_t from_mip, uint8
     struct packet_ux pu;
     pu.mip = from_mip;
     pu.my_mip = my_mip_addr;
-    //memcpy(&pu.msg, buff, sizeof(pu.msg));
     memcpy(pu.msg, buff, sizeof(pu.msg));
-    printf("{\n");
-    //printf("[<info>] Forwarding message [%s] FROM MIP [%d] to Routing daemon [<info>]\n", buff, pu.mip);
-
-    printf("%c\n", buff[0]);
-    printf("%c\n", buff[1]);
-    printf("%c\n", buff[2]);
     
     int entries;
     memcpy(&entries, pu.msg +3, sizeof(int));
 
-    printf("Entries: %d\n", entries);
     struct TableEntry t;
-
     memcpy(&t,  (pu.msg + 3) + sizeof(int), sizeof(struct TableEntry));
 
-    printf("T-Entry: %d|%d|%d\n", t.mip_address, t.next_hop, t.number_of_hops);
-
-    printf("}\n\n");
     rc = write(ifs->routin_sock, &pu, sizeof(struct packet_ux));
     if(rc <= 0) 
     {

@@ -40,6 +40,8 @@ void deleteFromCache(struct Cache *cache, uint8_t mip) {
     }
 }
 
+//Method to print the contets of the cache
+//Requires that you pass the cache
 void print_cache(struct Cache *cache)
 {
         printf("[*Printing Cache*]\n");

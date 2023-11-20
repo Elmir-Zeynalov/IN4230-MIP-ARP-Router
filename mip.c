@@ -1,6 +1,15 @@
 #include <stdio.h>
 #include "mip.h"
 
+/* 
+*
+* Basic funciton methos to print, build and delete mip headers.
+*
+*
+*/
+
+
+
 void print_mip_header(struct mip_header *h)
 {
 	printf("**********\t\tMIP\t\t**********\n");

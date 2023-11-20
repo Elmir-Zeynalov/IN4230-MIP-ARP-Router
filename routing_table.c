@@ -60,6 +60,13 @@ void deleteFromTable(struct Table* Table, uint8_t mip) {
     }
 }
 
+
+/*
+* Method for updating the routing table of a routing daemon. 
+* The key points here are to first check if we have an entry for a route already and if the incoming route is better.
+* We make sure we dont do redundant updates and dont look at routes that are for us (to avoid loops) 
+*
+*/
 void update_routing_table(struct Table *routing_table, uint8_t my_mip, uint8_t mip_address, struct TableEntry *table_entry){
 
     if(table_entry->mip_address == my_mip){
@@ -87,12 +94,13 @@ void update_routing_table(struct Table *routing_table, uint8_t my_mip, uint8_t m
         addToTable(routing_table, table_entry->mip_address,mip_address, table_entry->number_of_hops + 1);
     }
 
-
     printf("TABLE UPDATED\n");
 
 }
 
-
+/*
+* Prints routing table
+*/
 void print_routing_table(struct Table *routing_table)
 {
         printf("[*Printing Routing Table*]\n");

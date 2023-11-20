@@ -2,10 +2,21 @@
 #include "mip.h"
 
 
-
-
-
-
+/*
+ * This message is used as a sort of broadcast to send HELLO messages on all interfaces
+ * The difference between this and a reqular broadcast is that here we set the type 
+ * as a ROUTING Message because this is strictly a routing specific packet that 
+ * should be, when recevied by a MMIP daemon, sent up to its routing daemon for 
+ * furhter processing. 
+ *
+ * In short, this is just to say HELLO, to all the neighbouring routers. 
+ * ifs: datastructure to hold all socket connection (fds)
+ * src_mip: the source mip address
+ * message: the message we are trying to spread HELLO in this case
+ * len: length of message
+ * cache: the mip cache. 
+ *
+ */
 int disseminate_hello_message(struct ifs_data *ifs, uint8_t *src_mip, char *message, size_t len, struct Cache *cache)
 {
     struct ether_frame      frame_hdr;
@@ -83,10 +94,28 @@ int disseminate_hello_message(struct ifs_data *ifs, uint8_t *src_mip, char *mess
                 }
                 free(msg);
         }
-
         return rc;  
 }
 
+/*
+ * This message is used as a sort of broadcast to spread the UPDATE message on all interfaces
+ * The difference between this and a reqular broadcast is that here we set the type 
+ * as a ROUTING Message because this is strictly a routing specific packet that 
+ * should be, when recevied by a MMIP daemon, sent up to its routing daemon for 
+ * furhter processing. 
+ *
+ * Difference here between the HELLO disseminate is that here we pass the entire routing table
+ * in the message field. 
+ * This is the primary method of how routing daemons spread their routing tables with other nehgibours! 
+ *
+ * In short, this is just to say HELLO, to all the neighbouring routers. 
+ * ifs: datastructure to hold all socket connection (fds)
+ * src_mip: the source mip address
+ * message: the message we are trying to spread HELLO in this case
+ * len: length of message
+ * cache: the mip cache. 
+ *
+ */
 
 int disseminate_update_message(struct ifs_data *ifs, uint8_t *src_mip, char *message, size_t len)
 {
