@@ -299,7 +299,11 @@ int main (int argc, char *argv[])
         printf("Socket Lower: %s\n", socket_lower);
         struct Table routing_table;
                 
-        initializeTable(&routing_table);        
+        initializeTable(&routing_table);
+        //NEED TO REMOVE
+        addToTable(&routing_table, 10, 10, 1);
+        // 
+        
         routing_daemon_init(socket_lower, &routing_table);
         return 0;
 }

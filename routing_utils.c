@@ -1,9 +1,11 @@
 #include "routing_utils.h"
+#include "cache.h"
+#include "common.h"
 #include "daemon_routing_utils.h"
 #include <stdint.h>
 #include <string.h>
+#include "queue.h"
 #include "routing_table.h"
-
 
 void send_routing_hello(int unix_sock, uint8_t mip_sender)
 {
@@ -32,16 +34,7 @@ void lookup_request(int unix_sock, uint8_t host_mip, uint8_t requested_mip)
     pu.my_mip = host_mip;
     pu.mip = requested_mip;
     pu.ttl = 0;
-    /*
-    char buff[255];
-    pu = (struct packet_ux*)buff;
-    memset(pu->msg, 0, 255);
 
-    pu->mip = host_mip;
-    pu->ttl = 0;
-    memcpy(&pu->msg,ROUTING_REQUEST,3); 
-    memcpy(&pu->msg[3], &requested_mip, 1);
-    */
     char *req = "REQ";
     uint8_t ttl = 0; 
 
@@ -87,7 +80,7 @@ void lookup_response(int unix_sock, uint8_t host_mip, uint8_t requested_mip)
 
 
 
-void handle_message_from_routing_daemon(struct ifs_data *ifs, uint8_t *src_mip, struct Cache *cache)
+void handle_message_from_routing_daemon(struct ifs_data *ifs, uint8_t *src_mip, struct Queue *broadcast_queue, struct Cache *cache)
 {
     int rc;
     struct packet_ux pu;
@@ -103,7 +96,6 @@ void handle_message_from_routing_daemon(struct ifs_data *ifs, uint8_t *src_mip, 
     char type[4];
     memcpy(type, pu.msg, 3);
     type[3] = '\0';
-    
 
 
     printf("[<info>] Message from routing daemon [%s] [<info>]\n", type);
@@ -129,16 +121,41 @@ void handle_message_from_routing_daemon(struct ifs_data *ifs, uint8_t *src_mip, 
 
         disseminate_update_message(ifs, src_mip, pu.msg, 255);
     }
-    if(strcmp(type, ROUTING_REQUEST) == 0)
-    {
-        printf("[<info>] Handling [REQUEST] from routing daemon [<info>]\n");
-    }
-
     if(strncmp(pu.msg + 2, ROUTING_RESPONSE,3) == 0)
     {
+
+        uint8_t next_hop = (unsigned char)pu.msg[5];
         printf("[<info>] Handling [RESPONSE] from routing daemon [<info>]\n");
-        printf("WE got the goods?\n");
+        printf("[info] Received RSP from Routing Daemon [info]\n");
+        printf("<MIP: %d> <TTL: %d> <%c> <%c> <%c> <NEXT HOP: %u>\n", pu.msg[0], pu.msg[1], pu.msg[2], pu.msg[3], pu.msg[4], next_hop);
+        
+        if(next_hop == 255){
+            printf("[<info>] Router didnt have a next-hop address for the destination [<info>]\n");
+        }
+        //We check if the next hop is in our cache
+        struct CacheEntry *cache_entry =  isInCache(cache, next_hop);
+        if(cache_entry == NULL) {
+            char *broadcast_message = "BROADCAST";
+            //We need to broadcast a message
+            printf("[<info> Adding [%d] to broadcast queue <info>]\n", next_hop);
+            addToQueue(broadcast_queue, next_hop, next_hop, broadcast_message, strlen(broadcast_message), 0);
+            printf("[<info>] Sending BROADCAST [<info>]\n");
+            
+            struct QueueEntry *check = isInQueue(broadcast_queue, next_hop);
+            printf("QUICKCHEK: [%d]\n", check->src_mip);
+
+            send_arp_request(ifs, src_mip, next_hop, cache);
+            
+        }else{
+            //We have the next_hop in our cache so we can directly send to it
+           printf("[<info>] We have the next-hop in our cache already!! [<info>]\n"); 
+
+        }
     }
+        
+        //need to package and pass
+
+    
 
 
 

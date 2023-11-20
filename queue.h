@@ -7,7 +7,8 @@
 
 // Define the structure for a cache entry
 struct QueueEntry {
-    uint8_t mip_address;
+    uint8_t src_mip;
+    uint8_t dst_mip;
     char message[255];
     size_t len;
     uint8_t ttl;
@@ -19,8 +20,9 @@ struct Queue {
 };
 
 void initializeQueue(struct Queue* queue);
-void addToQueue(struct Queue* queue, uint8_t mip, char *buf, size_t len, uint8_t ttl);
+void addToQueue(struct Queue* queue, uint8_t src_mip, uint8_t dst_mip, char *buf, size_t len, uint8_t ttl);
 struct QueueEntry* isInQueue(struct Queue* queue, uint8_t mip);
 void deleteFromQueue(struct Queue* queue, uint8_t mip);
 
+struct QueueEntry* popFromQueue(struct Queue* queue);
 #endif

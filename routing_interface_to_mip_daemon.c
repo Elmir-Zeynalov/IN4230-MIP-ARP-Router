@@ -53,8 +53,9 @@ int handle_routing_message(int unix_sock, struct packet_ux *pu, struct Table *ro
         struct TableEntry *entry = isInTable(routing_table, looking_for_mip);
         if(entry == NULL){
             printf("NO entries in table for [%d]\n", looking_for_mip);
-            uint8_t no_hits = 0xFF;
+            uint8_t no_hits = 255;
             memcpy(response.msg + 5, &no_hits, sizeof(uint8_t));
+            printf("NEXT HOP [NO HOP]: %d \n", no_hits);
         }else{
             memcpy(response.msg + 5, &entry->next_hop, sizeof(uint8_t));
         }

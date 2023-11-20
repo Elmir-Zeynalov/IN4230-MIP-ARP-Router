@@ -28,9 +28,13 @@ int main(int argc, char *argv[])
 	
 	struct Cache cache;
 	struct Queue queue;
+	struct Queue broadcast_queue; 
 	
+	//Init queues + cache
 	initializeCache(&cache);
 	initializeQueue(&queue);
+	initializeQueue(&broadcast_queue);
+
 	struct ifs_data local_ifs;
 	int raw_sock, rc;
 	int unix_sock;
@@ -135,7 +139,7 @@ int main(int argc, char *argv[])
 			if(debug_flag) printf("[<info>] [RAW-SOCKET] The neighbor is initiating a MIP-ARP handshake [<info>]\n");
 
 			//rc = handle_arp_packet(&cache, &queue,  &local_ifs, &MIP_address);
-			rc = forwarding_engine(&cache, &queue,  &local_ifs, &MIP_address);
+			rc = forwarding_engine(&cache, &queue, &broadcast_queue, &local_ifs, &MIP_address);
 			if (rc < 1) {
 				perror("recv");
 				break;
@@ -168,7 +172,7 @@ int main(int argc, char *argv[])
 			*/
 			if(events->data.fd == local_ifs.routin_sock || events->data.fd == local_ifs.unix_sock)
 			{
-				handle_client(&cache, &queue, events->data.fd, &local_ifs, MIP_address);
+				handle_client(&cache, &queue, &broadcast_queue, events->data.fd, &local_ifs, MIP_address);
 			}else {
 				determine_unix_connection(events->data.fd, &local_ifs);
 			}

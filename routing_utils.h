@@ -35,7 +35,7 @@ struct packet_ux{
 void send_routing_hello(int unix_sock, uint8_t mip_sender);
 void lookup_request(int unix_sock, uint8_t host_mip, uint8_t requested_mip);
 void lookup_response(int unix_sock, uint8_t host_mip, uint8_t requested_mip);
-void handle_message_from_routing_daemon(struct ifs_data *ifs, uint8_t *src_mip , struct Cache *cache);
+void handle_message_from_routing_daemon(struct ifs_data *ifs, uint8_t *src_mip, struct Queue *broadcast_queue, struct Cache *cache);
 int send_message_to_routing_daemon(struct ifs_data *ifs, uint8_t from_mip, uint8_t my_mip_addr, char *buff, size_t len);
 
 #endif

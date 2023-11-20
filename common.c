@@ -65,7 +65,7 @@ int determine_unix_connection(int fd, struct ifs_data *local_ifs)
  * the cache in order to determine if we need to broadcast (to find the MIP address) or if we can send the message
  * directly (because the host is already known to us).
  */
-void handle_client(struct Cache *cache, struct Queue *queue, int fd, struct ifs_data *local_ifs, uint8_t MIP_address)
+void handle_client(struct Cache *cache, struct Queue *queue, struct Queue *broadcast_queue, int fd, struct ifs_data *local_ifs, uint8_t MIP_address)
 {
         char buf[256];
         int rc;
@@ -100,7 +100,7 @@ void handle_client(struct Cache *cache, struct Queue *queue, int fd, struct ifs_
 		send_msg(cache, queue, local_ifs, &MIP_address, received_info.destination_host, received_info.message, 255, received_info.ttl);
 	}else{
 		printf("[<info>] We got a message on the [ROUTING DEAMON] socket. [<info>]\n\n");
-		handle_message_from_routing_daemon(local_ifs, &MIP_address, cache);
+		handle_message_from_routing_daemon(local_ifs, &MIP_address, broadcast_queue, cache);
 	}
 }
 
@@ -148,11 +148,10 @@ int send_msg(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uin
 
 		if(1) printf("[<info>] Cache miss, need to send a broadcast to find: %d [<info>]\n", dst_mip);
 		if(1) printf("[<info>] Storing message [%s] in buffer until further notice.[<info>]\n", buf);
-		addToQueue(queue, dst_mip, buf, buf_len, ttl);
+		addToQueue(queue, *src_mip, dst_mip, buf, buf_len, ttl);
 		if(1) printf("[<info>] Making Request to Routing Daemon to find [%d].[<info>]\n", dst_mip);
 
 		lookup_request(ifs->routin_sock, *src_mip, dst_mip);	
-
 
 	}
 
@@ -324,7 +323,7 @@ int find_interface_from_cache(struct ifs_data *ifs, struct sockaddr_ll *so_name)
 }
 
 
-int forwarding_engine(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uint8_t *my_mip_addr)
+int forwarding_engine(struct Cache *cache, struct Queue *queue, struct Queue *broadcast_queue, struct ifs_data *ifs, uint8_t *my_mip_addr)
 {
 	struct sockaddr_ll so_name;
 	struct ether_frame	frame_hdr;
@@ -360,7 +359,7 @@ int forwarding_engine(struct Cache *cache, struct Queue *queue, struct ifs_data 
 		perror("sendmsg");
 		return -1;
 	}
-	
+	printf("printing BUFF [%s] \n", buf);	
 	/*
 	 * Main forwarding logic
 	 * 1) Check if MIP_DST is meant for ME or if its a Broadcast
@@ -374,11 +373,20 @@ int forwarding_engine(struct Cache *cache, struct Queue *queue, struct ifs_data 
 	if(header.dst_addr == *my_mip_addr || header.dst_addr == 0xFF){
 		printf("[<info>] MIP Destination == My MIP || 0xFF [<info>]\n");
 		printf("[<info>] Need to handle arp packet... [<info>]\n");
-		handle_arp_packet(cache, queue, ifs , my_mip_addr, so_name, frame_hdr, header, buf);
+		printf("[<info> MESSAGE IN FW: [%s]\n", buf);
+		handle_arp_packet(cache, queue, broadcast_queue, ifs , my_mip_addr, so_name, frame_hdr, header, buf);
 	}else if(--header.ttl > 0) {
 		printf("[<info>] MIP Destionation != My MIP && != 0xFF [<info>]\n");
 		printf("[<info>] Passed TTL check as well. So, we have to forward this message somewhere [<info>]\n");
 		printf("[<info>] Need to get information from Routing Daemon. [<info>]\n");
+
+		//make request to routing Daemon. 
+		printf("[<info>] [SRC: %d] [DST: %d] [<info>]\n", header.src_addr, header.dst_addr);
+		addToQueue(queue, header.src_addr, header.dst_addr, buf, 255, header.ttl);
+
+		lookup_request(ifs->routin_sock, header.src_addr, header.dst_addr);	
+
+
 	}else {
 		printf("[<info>] MIP Destination != My MIP && TTL <= 0 [<info>]\n");
 		printf("[<info>] Need to discard message due to failing TTL check. [<info>]\n");
@@ -401,7 +409,7 @@ int forwarding_engine(struct Cache *cache, struct Queue *queue, struct ifs_data 
  * on that. 
  *
  */
-int handle_arp_packet(struct Cache *cache, struct Queue *queue, struct ifs_data *ifs, uint8_t *my_mip_addr, struct sockaddr_ll so_name, struct ether_frame frame_hdr, struct mip_header header, uint8_t *buf)
+int handle_arp_packet(struct Cache *cache, struct Queue *queue, struct Queue *broadcast_queue, struct ifs_data *ifs, uint8_t *my_mip_addr, struct sockaddr_ll so_name, struct ether_frame frame_hdr, struct mip_header header, uint8_t *buf)
 {
 	/*struct sockaddr_ll so_name;
 	struct ether_frame	frame_hdr;
@@ -411,34 +419,6 @@ int handle_arp_packet(struct Cache *cache, struct Queue *queue, struct ifs_data 
 	*/
 	uint8_t valz;
 	int rc;
-	/*uint8_t buf[257];
-	memset(buf, 0, sizeof(buf));	
-	*/
-	/* Frame header */
-	/*
-	msgvec[0].iov_base	= &frame_hdr;
-	msgvec[0].iov_len	= sizeof(struct ether_frame);
-	
-	
-	msgvec[1].iov_base	= &header;
-	msgvec[1].iov_len	= sizeof(struct mip_header);
-
-	msgvec[2].iov_base	= buf;
-	msgvec[2].iov_len	= 255;//sizeof(struct mip_sdu);
-	
-	msg.msg_name	=	&so_name;
-	msg.msg_namelen	=	sizeof(struct sockaddr_ll);
-	msg.msg_iovlen	=	3;
-	msg.msg_iov	=	msgvec;
-		
-	if(debug_flag) printf("\n[<info>] Receving message with MIP header [<info>]\n");
-	
-	rc = recvmsg(ifs->rsock, &msg, 0);
-	if(rc == -1)
-	{
-		perror("sendmsg");
-		return -1;
-	} */
 
 	memcpy(&valz, buf, 1);
 	if(debug_flag)
@@ -483,27 +463,75 @@ int handle_arp_packet(struct Cache *cache, struct Queue *queue, struct ifs_data 
 				*/
 				if(debug_flag) printf("[<info>] This is a response to a broadcast message [<info>]\n");
 				
-				int interface_index = find_interface_from_cache(ifs, &so_name);
-				addToCache(cache, header.src_addr, frame_hdr.src_addr, interface_index);
-				//print_cache(cache);
+				//need to check if this response is for something we have in the queue.
+				printf("[<info>] Checking if the broadcast response is one we have stored in our broadcast cache? [<info>]\n");
+				printf("[CHECKING: %d \n", header.src_addr);
+				struct QueueEntry *broadcast_entry = isInQueue(broadcast_queue, header.src_addr);
+				if(broadcast_entry != NULL){
+					printf("[<info>] Broadcast queue hit! We, made a broadcat request to this src [<info>]\n");
+					int interface_index = find_interface_from_cache(ifs, &so_name);
+					addToCache(cache, header.src_addr, frame_hdr.src_addr, interface_index);
+					print_cache(cache);
 
+
+					//We delete the entry from the broadcast queue
+					deleteFromQueue(broadcast_queue, header.src_addr);
+					//Now we forward the message because we know the address of the next_hop/destination
+
+					struct QueueEntry *message_entry = popFromQueue(queue);
+					if(message_entry != NULL){
+						printf("[<info>] retrieved an entry from queue! [<info>]\n");
+						printf("[<SRC: %d> <DST: %d> <TTL: %d> <Message: %s>]\n",message_entry->src_mip, message_entry->dst_mip, message_entry->ttl,  message_entry->message);
+
+						printf("[<info>] Forwarding message to next hopp, which is [%d] [<info>]\n", header.src_addr);
+
+
+						forward_packet_to_next_hop(ifs, &message_entry->src_mip, message_entry->dst_mip, message_entry->ttl, message_entry->message, 255, cache);
+
+					}else{
+						printf("[<info>] There was nothing in the message queue to forward...[<info>]");
+					}
+
+				}else{
+					printf("[<info>] Never made a broadcast request for this MIP. Just ignoring it then [<info>]\n");
+				}
 				//I got a response for a broadcast i sent looking for this MIP
 				//Now i can empty my queue and send it the PING
-				struct QueueEntry *queue_entry = isInQueue(queue, header.src_addr);
-				if(queue_entry != NULL){
+				//struct QueueEntry *queue_entry = isInQueue(queue, header.src_addr);
+				//if(queue_entry != NULL){
 					//printf("Queue contents:\n");
 					//printf("\t-To MIP: [%d]\n\t-Message: [%s]\n\t-Len: [%lu]\n", queue_entry->mip_address, queue_entry->message, queue_entry->len);
 
-					struct CacheEntry *cache_entry = isInCache(cache, header.src_addr);
+				//	struct CacheEntry *cache_entry = isInCache(cache, header.src_addr);
 					//TTL???
-
+					/*
 					send_ping_message(cache_entry, ifs, my_mip_addr, &queue_entry->mip_address, queue_entry->message, queue_entry->len, cache, queue_entry->ttl);
+					*/
+				//	deleteFromQueue(queue, header.src_addr);
 
-					deleteFromQueue(queue, header.src_addr);
+				//}else {
+					//printf("NOTHING IN QUEUE\n"); //Hopefully we dont end up here...
+			//	}
+			}else{
 
-				}else {
-					printf("NOTHING IN QUEUE\n"); //Hopefully we dont end up here...
+				printf("[<info>] I THINK THIS MESSAGE WAS MEANT FOR ME???[<info>]\n");	
+				if(debug_flag) printf("[<info>] Received message. Type: *PING* [<info>]\n");
+				if(debug_flag) printf("\t\t[<info>] Message: %s [<info>]\n", buf);
+
+				struct information info;
+				memcpy(info.message,buf,sizeof(info.message));
+				info.destination_host = header.src_addr; //Who we will reply to later
+		
+				printf("PING: TTL: %d\n", header.ttl);
+				rc = write(ifs->unix_sock, &info, sizeof(struct information));
+				if(rc <= 0)
+				{
+					close(ifs->unix_sock);
+					printf("<%d> has lef thte chat...\n", ifs->unix_sock);
+					return -1;
 				}
+				if(debug_flag) printf("[<info>] Forwarding message to Pong-Server Application. [<info>]\n");
+
 			}
 		}
 
@@ -737,6 +765,122 @@ int send_arp_request(struct ifs_data *ifs, uint8_t *src_mip, uint8_t dst_mip, st
 		}
 		free(msg);
 	}
+	
+	return rc;
+}
+
+
+
+/*
+ * Method that sends a ARP Request(broadcast) on all interfaces.
+ * 
+ * ifs: interfaces available on current host
+ * src_mip: the MIP address of the current host
+ * dst_mip: the MIP address we are trying to reach/find
+ * cache: is our MIP/MAC cache
+ *
+ *  Here we construct a MIP package with a header and SDU, and broadcast it
+ * on all interfaces in order to find the dst_mip
+ *
+ * This is the method that send the broadcast request trying to find a dst_mip. The boradcast message 
+ * is sent on ALL interfaces. 
+ */
+
+
+int forward_packet_to_next_hop(struct ifs_data *ifs, uint8_t *src_mip, uint8_t dst_mip, uint8_t ttl, char *buf, size_t buf_len, struct Cache *cache)
+{
+	struct ether_frame	frame_hdr;
+	struct msghdr	*msg;
+	struct iovec	msgvec[3];
+	int rc;
+	uint8_t *address = &dst_mip;
+	struct sockaddr_ll socka;
+
+
+	struct CacheEntry *cache_entry = isInCache(cache, dst_mip);
+	if(cache_entry == NULL){
+		printf("Forward Packet::: Something went wrong when getting the dst_mip form cache\n");
+		return -1;
+	}
+	 /* from. We use sll_ifindex recorded in the so_name. */
+	for (int i = 0; i < ifs->ifn; i++) {
+		if (ifs->addr[i].sll_ifindex == cache_entry->index){
+			memcpy(frame_hdr.src_addr, ifs->addr[i].sll_addr, 6);
+			//print_mac_addr(ifs->addr[i].sll_addr,6);
+			socka = ifs->addr[i];
+		}
+	}
+	memcpy(frame_hdr.dst_addr, cache_entry->mac_address, 6); //USE the cache interface
+	frame_hdr.eth_proto[0] = (htons(0x88B5) >> (8*0)) & 0xff;
+	frame_hdr.eth_proto[1] = (htons(0x88B5) >> (8*1)) & 0xff;
+
+	struct mip_header	header;
+	//create MIP header with TTL=0x01	
+	header = construct_mip_header(dst_mip, *src_mip, ttl, sizeof(uint8_t), MIP_ARP);
+
+	/* frame header */
+	msgvec[0].iov_base	= &frame_hdr;
+	msgvec[0].iov_len	= sizeof(struct ether_frame);
+
+	/* MIP header */
+	msgvec[1].iov_base	= &header;
+	msgvec[1].iov_len	= sizeof(struct mip_header);
+	
+	/* MIP SDU */
+	msgvec[2].iov_base	= buf;
+	msgvec[2].iov_len	= 255;
+
+
+
+	printf("BUFFFFFF IN FORWARDER:::: [%s] \n\n",
+	buf);
+
+		if(debug_flag)
+		{	printf("\n\n[<info>] BROADCAST [<info>]");
+			printf("\n******");
+			printf("\n[<info>] Sending ARP-REQUEST messge on interface: ");
+			print_mac_addr(socka.sll_addr, 6);
+			printf("[<info>]\n");
+		}
+
+		if(debug_flag)
+		{
+			printf("[<info>] SDU Content: [%d] SDU SIZE: [%lu] [<info>]", dst_mip, sizeof(dst_mip));
+		
+			printf("\n[<info>] Source address [<info>]\n");
+			printf("\t");
+			print_mac_addr(frame_hdr.src_addr, 6);
+			printf("\n[<info>] Destination address [<info>]\n");
+			printf("\t");
+			print_mac_addr(frame_hdr.dst_addr, 6);
+
+			printf("\n[<info>] Source MIP [<info>]\n");
+			printf("\t%d\n", header.src_addr);
+			printf("[<info>] Destination MIP [<info>]\n");
+			printf("\t%d\n", header.dst_addr);
+				
+			printf("\n[<info>] TTL: %d [<info>]\n", header.ttl);
+
+
+			printf("[<info>] Contents of MIP-ARP Cache [<info>]\n");
+			print_cache(cache);
+			printf("******\n\n");
+		}		
+
+		msg = (struct msghdr *)calloc(1,sizeof(struct msghdr));
+		msg->msg_name		= &(socka);
+		msg->msg_namelen	= sizeof(struct sockaddr_ll);
+		msg->msg_iovlen		= 3;
+		msg->msg_iov		= msgvec;
+		
+		rc = sendmsg(ifs->rsock, msg, 0);
+		if(rc == -1)
+		{
+			perror("sendmsg");
+			free(msg);
+			return -1;
+		}
+		free(msg);
 	
 	return rc;
 }

@@ -12,8 +12,8 @@ ping_client: ping_client.c client.c
 ping_server: server.c
 	$(CC) $(CFLAGS) server.c -o ping_server
 
-router: routing_daemon.c debug.c mip.c utilities.c routing_utils.c daemon_routing_utils.c routing_interface_to_mip_daemon.c routing_table.c
-	$(CC) $(CFLAGS) routing_daemon.c debug.c mip.c utilities.c routing_utils.c daemon_routing_utils.c routing_interface_to_mip_daemon.c routing_table.c -o router
+router: routing_daemon.c debug.c mip.c utilities.c routing_utils.c daemon_routing_utils.c routing_interface_to_mip_daemon.c routing_table.c queue.c cache.c common.c
+	$(CC) $(CFLAGS) routing_daemon.c debug.c mip.c utilities.c routing_utils.c daemon_routing_utils.c routing_interface_to_mip_daemon.c routing_table.c queue.c cache.c common.c -o router
 clean:
 	rm -f mipd
 	rm -f ping_client
